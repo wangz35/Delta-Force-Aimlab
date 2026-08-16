@@ -36,14 +36,14 @@ AAimTrainingTarget::AAimTrainingTarget()
     static ConstructorHelpers::FObjectFinder<UMaterialInterface> ShapeMaterial(TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
     if (ShapeMaterial.Succeeded())
     {
-        if (UMaterialInstanceDynamic* OuterMaterial = UMaterialInstanceDynamic::Create(ShapeMaterial.Object, this))
+        OuterMaterial = UMaterialInstanceDynamic::Create(ShapeMaterial.Object, this);
+        CoreMaterial = UMaterialInstanceDynamic::Create(ShapeMaterial.Object, this);
+        if (OuterMaterial)
         {
-            OuterMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.16f, 0.025f, 0.005f));
             OuterRing->SetMaterial(0, OuterMaterial);
         }
-        if (UMaterialInstanceDynamic* CoreMaterial = UMaterialInstanceDynamic::Create(ShapeMaterial.Object, this))
+        if (CoreMaterial)
         {
-            CoreMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(1.0f, 0.2f, 0.01f));
             Core->SetMaterial(0, CoreMaterial);
         }
     }
@@ -59,10 +59,34 @@ void AAimTrainingTarget::Activate(const FVector& NewLocation, float NewRadius, f
     MovementMode = NewMovementMode;
     ActivationTime = GetWorld()->GetTimeSeconds();
 
+    if (OuterMaterial)
+    {
+        OuterMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.16f, 0.025f, 0.005f));
+    }
+    if (CoreMaterial)
+    {
+        CoreMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(1.0f, 0.2f, 0.01f));
+    }
+    Glow->SetLightColor(FLinearColor(1.0f, 0.28f, 0.04f));
+    Glow->SetIntensity(3500.0f);
     SetActorLocation(HomeLocation);
     OuterRing->SetWorldScale3D(FVector(NewRadius / 50.0f));
     Core->SetRelativeLocation(FVector(-NewRadius * 0.28f, 0.0f, 0.0f));
     Core->SetRelativeScale3D(FVector(0.38f));
+}
+
+void AAimTrainingTarget::MarkHit()
+{
+    if (OuterMaterial)
+    {
+        OuterMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.01f, 0.08f, 0.32f));
+    }
+    if (CoreMaterial)
+    {
+        CoreMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.02f, 0.45f, 1.0f));
+    }
+    Glow->SetLightColor(FLinearColor(0.04f, 0.38f, 1.0f));
+    Glow->SetIntensity(6000.0f);
 }
 
 void AAimTrainingTarget::Tick(float DeltaSeconds)
@@ -83,9 +107,7 @@ void AAimTrainingTarget::Tick(float DeltaSeconds)
         const float Phase = FMath::Frac((Elapsed * (0.72f + TravelSpeed * 0.12f)) + OscillationOffset / (2.0f * PI));
         const float LegProgress = Phase < 0.5f ? Phase * 2.0f : (Phase - 0.5f) * 2.0f;
         const float EasedProgress = FMath::InterpEaseInOut(0.0f, 1.0f, LegProgress, 2.8f);
-        const float SlideOffset = Phase < 0.5f
-            ? FMath::Lerp(-TravelDistance, TravelDistance, EasedProgress)
-            : FMath::Lerp(TravelDistance, -TravelDistance, EasedProgress);
+        const float SlideOffset = Phase < 0.5f ? FMath::Lerp(-TravelDistance, TravelDistance, EasedProgress) : FMath::Lerp(TravelDistance, -TravelDistance, EasedProgress);
         NewLocation += TravelDirection * SlideOffset;
         NewLocation.Z -= 95.0f;
         break;
@@ -94,23 +116,15 @@ void AAimTrainingTarget::Tick(float DeltaSeconds)
     {
         const float Phase = FMath::Frac((Elapsed / 1.85f) + OscillationOffset / (2.0f * PI));
         const float LegProgress = Phase < 0.5f ? Phase * 2.0f : (Phase - 0.5f) * 2.0f;
-        const float PullProgress = Phase < 0.5f
-            ? FMath::InterpEaseOut(0.0f, 1.0f, LegProgress, 1.6f)
-            : FMath::InterpEaseIn(0.0f, 1.0f, LegProgress, 3.0f);
-        const float PullOffset = Phase < 0.5f
-            ? FMath::Lerp(-TravelDistance, TravelDistance, PullProgress)
-            : FMath::Lerp(TravelDistance, -TravelDistance, PullProgress);
-        const float JumpHeight = FMath::Sin(Phase * PI) * FMath::Max(260.0f, TravelDistance * 1.8f);
-        NewLocation += TravelDirection * PullOffset + FVector::UpVector * JumpHeight;
+        const float PullProgress = Phase < 0.5f ? FMath::InterpEaseOut(0.0f, 1.0f, LegProgress, 1.6f) : FMath::InterpEaseIn(0.0f, 1.0f, LegProgress, 3.0f);
+        const float PullOffset = Phase < 0.5f ? FMath::Lerp(-TravelDistance, TravelDistance, PullProgress) : FMath::Lerp(TravelDistance, -TravelDistance, PullProgress);
+        NewLocation += TravelDirection * PullOffset + FVector::UpVector * FMath::Sin(Phase * PI) * FMath::Max(260.0f, TravelDistance * 1.8f);
         break;
     }
     case EAimTargetMovement::Strafe:
     default:
-    {
-        const float Offset = FMath::Sin(Elapsed * TravelSpeed + OscillationOffset) * TravelDistance;
-        NewLocation += TravelDirection * Offset;
+        NewLocation += TravelDirection * FMath::Sin(Elapsed * TravelSpeed + OscillationOffset) * TravelDistance;
         break;
-    }
     }
 
     SetActorLocation(NewLocation);

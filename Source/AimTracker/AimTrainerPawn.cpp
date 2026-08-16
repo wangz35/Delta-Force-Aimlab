@@ -28,6 +28,8 @@ AAimTrainerPawn::AAimTrainerPawn()
     FloatingMovement->Acceleration = 8000.0f;
     FloatingMovement->Deceleration = 10000.0f;
 
+    RecoilYawPattern = { 0.00f, 0.10f, 0.18f, 0.22f, 0.22f, 0.24f, 0.22f, 0.14f, -0.12f, -0.12f, 0.14f, 0.14f, 0.10f, -0.08f, -0.14f, -0.16f, -0.20f, -0.20f, -0.16f, -0.14f, -0.10f, 0.08f, 0.12f, 0.16f, 0.18f, 0.18f, 0.14f, 0.10f, 0.08f };
+
     AutoPossessPlayer = EAutoReceiveInput::Player0;
     bUseControllerRotationPitch = true;
     bUseControllerRotationYaw = true;
@@ -42,18 +44,41 @@ float AAimTrainerPawn::GetJumpCrosshairOffset() const
     }
 
     const float LaunchVelocity = bIsSlideJumping ? SlideJumpInitialVelocity : JumpInitialVelocity;
-    return JumpCrosshairKickPixels * FMath::Clamp(JumpVerticalVelocity / LaunchVelocity, 0.0f, 1.0f);
+    const float AscentProgress = 1.0f - FMath::Clamp(JumpVerticalVelocity / LaunchVelocity, 0.0f, 1.0f);
+    if (AscentProgress <= 0.45f)
+    {
+        return FMath::Lerp(JumpCrosshairKickPixels, -JumpCrosshairKickPixels * 0.65f, AscentProgress / 0.45f);
+    }
+    return FMath::Lerp(-JumpCrosshairKickPixels * 0.65f, 0.0f, (AscentProgress - 0.45f) / 0.55f);
 }
 
 void AAimTrainerPawn::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
 
+    if (bIsFiring)
+    {
+        FireCooldown -= DeltaSeconds;
+        while (FireCooldown <= 0.0f)
+        {
+            Fire();
+            FireCooldown += FMath::Max(0.01f, FireInterval);
+        }
+    }
+
+    const float RecoilAlpha = FMath::Clamp(DeltaSeconds * RecoilSmoothingSpeed, 0.0f, 1.0f);
+    const float AppliedRecoilYaw = PendingRecoilYaw * RecoilAlpha;
+    const float AppliedRecoilPitch = PendingRecoilPitch * RecoilAlpha;
+    AddControllerYawInput(AppliedRecoilYaw);
+    AddControllerPitchInput(AppliedRecoilPitch);
+    PendingRecoilYaw -= AppliedRecoilYaw;
+    PendingRecoilPitch -= AppliedRecoilPitch;
+
     if (bIsSliding)
     {
         SlideElapsed += DeltaSeconds;
         const float Progress = FMath::Clamp(SlideElapsed / SlideDuration, 0.0f, 1.0f);
-        const float Speed = FMath::Lerp(SlideInitialSpeed, 120.0f, FMath::InterpEaseOut(0.0f, 1.0f, Progress, 2.2f));
+        const float Speed = SlideElapsed <= SlideBurstDuration ? SlideInitialSpeed : SlideBaseSpeed;
         AddActorWorldOffset(SlideDirection * Speed * DeltaSeconds, true);
         const float RecoveryProgress = FMath::Clamp((SlideElapsed - SlideCameraDropDuration) / FMath::Max(0.01f, SlideDuration - SlideCameraDropDuration), 0.0f, 1.0f);
         const float CameraHeight = SlideElapsed <= SlideCameraDropDuration
@@ -106,7 +131,8 @@ void AAimTrainerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
     PlayerInputComponent->BindAxis(TEXT("MoveRight"), this, &AAimTrainerPawn::MoveRight);
     PlayerInputComponent->BindAxis(TEXT("Turn"), this, &AAimTrainerPawn::Turn);
     PlayerInputComponent->BindAxis(TEXT("LookUp"), this, &AAimTrainerPawn::LookUp);
-    PlayerInputComponent->BindAction(TEXT("Fire"), IE_Pressed, this, &AAimTrainerPawn::Fire);
+    PlayerInputComponent->BindAction(TEXT("Fire"), IE_Pressed, this, &AAimTrainerPawn::BeginFire);
+    PlayerInputComponent->BindAction(TEXT("Fire"), IE_Released, this, &AAimTrainerPawn::EndFire);
     PlayerInputComponent->BindAction(TEXT("Slide"), IE_Pressed, this, &AAimTrainerPawn::BeginSlide);
     PlayerInputComponent->BindAction(TEXT("Jump"), IE_Pressed, this, &AAimTrainerPawn::BeginJump);
     PlayerInputComponent->BindAction(TEXT("SensitivityDown"), IE_Pressed, this, &AAimTrainerPawn::DecreaseSensitivity);
@@ -143,7 +169,23 @@ void AAimTrainerPawn::Turn(float Value)
 
 void AAimTrainerPawn::LookUp(float Value)
 {
-    AddControllerPitchInput(Value * MouseSensitivity);
+    AddControllerPitchInput(Value * MouseSensitivity * VerticalSensitivityMultiplier);
+}
+
+void AAimTrainerPawn::BeginFire()
+{
+    if (!bIsFiring)
+    {
+        bIsFiring = true;
+        FireCooldown = 0.0f;
+    }
+}
+
+void AAimTrainerPawn::EndFire()
+{
+    bIsFiring = false;
+    FireCooldown = 0.0f;
+    RecoilShotIndex = 0;
 }
 
 void AAimTrainerPawn::Fire()
@@ -153,6 +195,13 @@ void AAimTrainerPawn::Fire()
     {
         return;
     }
+
+    if (RecoilYawPattern.IsValidIndex(RecoilShotIndex))
+    {
+        PendingRecoilYaw -= RecoilYawPattern[RecoilShotIndex];
+    }
+    PendingRecoilPitch -= RecoilVerticalKick;
+    ++RecoilShotIndex;
 
     const FVector TraceStart = Camera->GetComponentLocation();
     const FVector TraceEnd = TraceStart + Camera->GetForwardVector() * TraceRange;
@@ -185,13 +234,18 @@ void AAimTrainerPawn::BeginSlide()
     SlideElapsed = 0.0f;
     bIsSliding = true;
     FloatingMovement->StopMovementImmediately();
-    Camera->SetRelativeLocation(FVector(0.0f, 0.0f, SlidingCameraHeight));
 }
 
 void AAimTrainerPawn::EndSlide()
 {
+    const bool bLaunchQueuedJump = bQueuedSlideJump;
+    bQueuedSlideJump = false;
     bIsSliding = false;
     Camera->SetRelativeLocation(FVector(0.0f, 0.0f, StandingCameraHeight));
+    if (bLaunchQueuedJump)
+    {
+        LaunchJump(true);
+    }
 }
 
 void AAimTrainerPawn::BeginJump()
@@ -201,17 +255,27 @@ void AAimTrainerPawn::BeginJump()
         return;
     }
 
+    if (bIsSliding)
+    {
+        bQueuedSlideJump = true;
+        return;
+    }
+
+    LaunchJump(false);
+}
+
+void AAimTrainerPawn::LaunchJump(bool bFromSlide)
+{
     const FVector HorizontalVelocity(FloatingMovement->Velocity.X, FloatingMovement->Velocity.Y, 0.0f);
     FloatingMovement->StopMovementImmediately();
 
-    bIsSlideJumping = bIsSliding;
+    bIsSlideJumping = bFromSlide;
     if (bIsSlideJumping)
     {
         const float SlideProgress = FMath::Clamp(SlideElapsed / SlideDuration, 0.0f, 1.0f);
-        const float CurrentSlideSpeed = FMath::Lerp(SlideInitialSpeed, 120.0f, FMath::InterpEaseOut(0.0f, 1.0f, SlideProgress, 2.2f));
+        const float CurrentSlideSpeed = SlideElapsed <= SlideBurstDuration ? SlideInitialSpeed : SlideBaseSpeed;
         SlideJumpDirection = SlideDirection;
-        SlideJumpForwardSpeed = FMath::Max(SlideJumpMinimumForwardSpeed, CurrentSlideSpeed * 0.84f);
-        EndSlide();
+        SlideJumpForwardSpeed = FMath::Max(SlideJumpMinimumForwardSpeed, CurrentSlideSpeed * 0.84f) * SlideJumpMomentumMultiplier;
     }
     else
     {
@@ -222,9 +286,7 @@ void AAimTrainerPawn::BeginJump()
     JumpBaseHeight = GetActorLocation().Z;
     JumpVerticalVelocity = bIsSlideJumping ? SlideJumpInitialVelocity : JumpInitialVelocity;
     bIsJumping = true;
-}
-
-void AAimTrainerPawn::DecreaseSensitivity()
+}void AAimTrainerPawn::DecreaseSensitivity()
 {
     MouseSensitivity = FMath::Clamp(MouseSensitivity - SensitivityStep, MinMouseSensitivity, MaxMouseSensitivity);
 }

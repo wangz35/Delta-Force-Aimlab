@@ -60,7 +60,7 @@ void AAimTrainerGameMode::RegisterHit(AAimTrainingTarget* Target)
     ++Shots;
     LastReactionMs = (GetWorld()->GetTimeSeconds() - Target->GetActivationTime()) * 1000.0f;
     TotalReactionMs += LastReactionMs;
-    PlaceTarget(Target, Target->GetMovementMode());
+    Target->MarkHit();
 }
 
 void AAimTrainerGameMode::RegisterMiss()
@@ -133,12 +133,12 @@ void AAimTrainerGameMode::BuildArena()
         }
     };
 
-    SpawnBlock(FVector(1800.0f, 0.0f, -220.0f), FVector(42.0f, 30.0f, 0.35f));
-    SpawnBlock(FVector(3700.0f, 0.0f, 850.0f), FVector(0.3f, 30.0f, 11.0f));
-    SpawnBlock(FVector(-300.0f, 0.0f, 850.0f), FVector(0.3f, 30.0f, 11.0f));
-    SpawnBlock(FVector(1800.0f, 0.0f, 2600.0f), FVector(42.0f, 30.0f, 0.35f));
-    SpawnBlock(FVector(1850.0f, 3100.0f, 850.0f), FVector(19.0f, 0.3f, 11.0f));
-    SpawnBlock(FVector(1850.0f, -3100.0f, 850.0f), FVector(19.0f, 0.3f, 11.0f));
+    SpawnBlock(FVector(1800.0f, 0.0f, -220.0f), FVector(42.0f, 62.0f, 0.35f));
+    SpawnBlock(FVector(3900.0f, 0.0f, 1190.0f), FVector(0.3f, 62.0f, 27.8f));
+    SpawnBlock(FVector(-300.0f, 0.0f, 1190.0f), FVector(0.3f, 62.0f, 27.8f));
+    SpawnBlock(FVector(1800.0f, 0.0f, 2600.0f), FVector(42.0f, 62.0f, 0.35f));
+    SpawnBlock(FVector(1800.0f, 3100.0f, 1190.0f), FVector(42.0f, 0.3f, 27.8f));
+    SpawnBlock(FVector(1800.0f, -3100.0f, 1190.0f), FVector(42.0f, 0.3f, 27.8f));
 
     auto SpawnArenaLight = [this](const FVector& Location, const FLinearColor& Color, float Intensity)
     {
@@ -180,7 +180,7 @@ void AAimTrainerGameMode::PlaceTarget(AAimTrainingTarget* Target, EAimTargetMove
     Target->Activate(
         GetTrackingTargetLocation(),
         70.0f,
-        0.52f,
+        1.04f,
         FVector::RightVector,
         EAimTargetMovement::Strafe
     );

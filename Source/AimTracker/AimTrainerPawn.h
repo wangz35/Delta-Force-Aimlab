@@ -27,10 +27,13 @@ private:
     void MoveRight(float Value);
     void Turn(float Value);
     void LookUp(float Value);
+    void BeginFire();
+    void EndFire();
     void Fire();
     void BeginSlide();
     void EndSlide();
     void BeginJump();
+    void LaunchJump(bool bFromSlide);
     void DecreaseSensitivity();
     void IncreaseSensitivity();
     void RestartTraining();
@@ -51,31 +54,49 @@ private:
     float MoveSpeed = 1200.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming")
-    float MouseSensitivity = 1.0f;
+    float MouseSensitivity = 0.50f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming")
-    float SensitivityStep = 0.10f;
+    float SensitivityStep = 0.05f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming")
-    float MinMouseSensitivity = 0.20f;
+    float MinMouseSensitivity = 0.05f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming")
-    float MaxMouseSensitivity = 3.00f;
+    float MaxMouseSensitivity = 0.50f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Aiming")
+    float VerticalSensitivityMultiplier = 1.30f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Recoil")
+    float FireInterval = 0.064516f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Recoil")
+    float RecoilVerticalKick = 0.58f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Recoil")
+    float RecoilSmoothingSpeed = 18.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideDuration = 1.44f;
+    float SlideDuration = 0.70f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideInitialSpeed = 2820.0f;
+    float SlideInitialSpeed = 4230.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float StandingCameraHeight = 58.0f;
+    float SlideBurstDuration = 0.08f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlidingCameraHeight = -72.0f;
+    float SlideBaseSpeed = 2700.0f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
+    float StandingCameraHeight = 28.0f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
+    float SlidingCameraHeight = -200.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Jump")
-    float JumpInitialVelocity = 760.0f;
+    float JumpInitialVelocity = 2150.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
     float SlideCameraDropDuration = 0.10f;
@@ -84,19 +105,22 @@ private:
     float JumpCrosshairKickPixels = 26.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Jump")
-    float JumpGravity = 2500.0f;
+    float JumpGravity = 8000.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Jump")
     float AirJumpForwardDeceleration = 600.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
-    float SlideJumpInitialVelocity = 800.0f;
+    float SlideJumpInitialVelocity = 2262.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
     float SlideJumpMinimumForwardSpeed = 1450.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
     float SlideJumpForwardDeceleration = 600.0f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
+    float SlideJumpMomentumMultiplier = 1.35f;
 
     FVector SlideDirection = FVector::ForwardVector;
     FVector SlideJumpDirection = FVector::ForwardVector;
@@ -106,7 +130,14 @@ private:
     float JumpVerticalVelocity = 0.0f;
     float SlideJumpForwardSpeed = 0.0f;
     float AirJumpForwardSpeed = 0.0f;
+    float FireCooldown = 0.0f;
+    int32 RecoilShotIndex = 0;
+    float PendingRecoilYaw = 0.0f;
+    float PendingRecoilPitch = 0.0f;
+    TArray<float> RecoilYawPattern;
     bool bIsSliding = false;
     bool bIsJumping = false;
     bool bIsSlideJumping = false;
+    bool bQueuedSlideJump = false;
+    bool bIsFiring = false;
 };

@@ -6,6 +6,7 @@
 
 class UPointLightComponent;
 class UStaticMeshComponent;
+class UMaterialInstanceDynamic;
 
 UENUM()
 enum class EAimTargetMovement : uint8
@@ -26,6 +27,7 @@ public:
     virtual void Tick(float DeltaSeconds) override;
 
     void Activate(const FVector& NewLocation, float NewRadius, float NewSpeed, const FVector& NewTravelDirection, EAimTargetMovement NewMovementMode);
+    void MarkHit();
     float GetActivationTime() const { return ActivationTime; }
     EAimTargetMovement GetMovementMode() const { return MovementMode; }
 
@@ -39,6 +41,8 @@ private:
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TObjectPtr<UPointLightComponent> Glow;
 
+    TObjectPtr<UMaterialInstanceDynamic> OuterMaterial;
+    TObjectPtr<UMaterialInstanceDynamic> CoreMaterial;
     FVector HomeLocation = FVector::ZeroVector;
     FVector TravelDirection = FVector::RightVector;
     float TravelDistance = 0.0f;
