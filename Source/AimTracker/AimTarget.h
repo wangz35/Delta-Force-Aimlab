@@ -23,24 +23,20 @@ class AIMTRACKER_API AAimTrainingTarget : public AActor
 
 public:
     AAimTrainingTarget();
-
     virtual void Tick(float DeltaSeconds) override;
-
-    void Activate(const FVector& NewLocation, float NewRadius, float NewSpeed, const FVector& NewTravelDirection, EAimTargetMovement NewMovementMode);
+    void Activate(const FVector& NewLocation, float NewRadius, float NewSpeed, const FVector& NewTravelDirection, EAimTargetMovement NewMovementMode, bool bInPersistentOnHit, bool bInHumanoid);
     void MarkHit();
+    void SetPersistentHover(bool bHovered);
+    bool PersistsOnHit() const { return bPersistentOnHit; }
     float GetActivationTime() const { return ActivationTime; }
-    EAimTargetMovement GetMovementMode() const { return MovementMode; }
 
 private:
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TObjectPtr<UStaticMeshComponent> OuterRing;
-
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TObjectPtr<UStaticMeshComponent> Core;
-
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TObjectPtr<UPointLightComponent> Glow;
-
     TObjectPtr<UMaterialInstanceDynamic> OuterMaterial;
     TObjectPtr<UMaterialInstanceDynamic> CoreMaterial;
     FVector HomeLocation = FVector::ZeroVector;
@@ -49,5 +45,8 @@ private:
     float TravelSpeed = 0.0f;
     float ActivationTime = 0.0f;
     float OscillationOffset = 0.0f;
+    bool bPersistentOnHit = false;
+    bool bHasBeenHit = false;
+    bool bHumanoid = false;
     EAimTargetMovement MovementMode = EAimTargetMovement::Strafe;
 };

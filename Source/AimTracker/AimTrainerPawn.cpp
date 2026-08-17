@@ -21,6 +21,7 @@ AAimTrainerPawn::AAimTrainerPawn()
     Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
     Camera->SetupAttachment(Capsule);
     Camera->SetRelativeLocation(FVector(0.0f, 0.0f, StandingCameraHeight));
+    Camera->SetFieldOfView(BaseFieldOfView);
     Camera->bUsePawnControlRotation = true;
 
     FloatingMovement = CreateDefaultSubobject<UFloatingPawnMovement>(TEXT("FloatingMovement"));
@@ -28,7 +29,7 @@ AAimTrainerPawn::AAimTrainerPawn()
     FloatingMovement->Acceleration = 8000.0f;
     FloatingMovement->Deceleration = 10000.0f;
 
-    RecoilYawPattern = { 0.00f, 0.10f, 0.18f, 0.22f, 0.22f, 0.24f, 0.22f, 0.14f, -0.12f, -0.12f, 0.14f, 0.14f, 0.10f, -0.08f, -0.14f, -0.16f, -0.20f, -0.20f, -0.16f, -0.14f, -0.10f, 0.08f, 0.12f, 0.16f, 0.18f, 0.18f, 0.14f, 0.10f, 0.08f };
+    RecoilYawPattern = { 0.00f, 0.024f, 0.042f, 0.060f, 0.072f, 0.072f, 0.060f, 0.048f, 0.042f, 0.036f, 0.030f, 0.024f, 0.018f, 0.012f, 0.006f, -0.006f, -0.018f, -0.036f, -0.054f, -0.072f, -0.072f, -0.054f, -0.036f, -0.018f, -0.006f, 0.006f, 0.018f, 0.036f, 0.054f, 0.072f, 0.072f, 0.054f, 0.036f, 0.018f, 0.006f };
 
     AutoPossessPlayer = EAutoReceiveInput::Player0;
     bUseControllerRotationPitch = true;
@@ -52,9 +53,28 @@ float AAimTrainerPawn::GetJumpCrosshairOffset() const
     return FMath::Lerp(-JumpCrosshairKickPixels * 0.65f, 0.0f, (AscentProgress - 0.45f) / 0.55f);
 }
 
+float AAimTrainerPawn::GetZoomMultiplier() const
+{
+    static constexpr float ZoomMultipliers[] = { 1.0f, 3.5f, 7.25f };
+    return ZoomMultipliers[FMath::Clamp(ZoomLevel, 0, UE_ARRAY_COUNT(ZoomMultipliers) - 1)];
+}
+
 void AAimTrainerPawn::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
+
+    const float LeanDirection = bLeanLeftHeld == bLeanRightHeld ? 0.0f : (bLeanRightHeld ? 1.0f : -1.0f);
+    CurrentLeanAngle = FMath::FInterpTo(CurrentLeanAngle, LeanDirection * LeanAngle, DeltaSeconds, LeanSpeed);
+    CurrentLeanOffset = FMath::FInterpTo(CurrentLeanOffset, LeanDirection * LeanSideOffset, DeltaSeconds, LeanSpeed);
+    if (Controller)
+    {
+        FRotator LeanControlRotation = Controller->GetControlRotation();
+        LeanControlRotation.Roll = CurrentLeanAngle;
+        Controller->SetControlRotation(LeanControlRotation);
+    }
+    FVector LeanCameraLocation = Camera->GetRelativeLocation();
+    LeanCameraLocation.Y = CurrentLeanOffset;
+    Camera->SetRelativeLocation(LeanCameraLocation);
 
     if (bIsFiring)
     {
@@ -64,6 +84,16 @@ void AAimTrainerPawn::Tick(float DeltaSeconds)
             Fire();
             FireCooldown += FMath::Max(0.01f, FireInterval);
         }
+    }
+
+    if (AAimTrainerGameMode* HoverGameMode = Cast<AAimTrainerGameMode>(UGameplayStatics::GetGameMode(this)))
+    {
+        FHitResult HoverHit;
+        FCollisionQueryParams HoverParams(SCENE_QUERY_STAT(AimTrainerHoverTrace), true, this);
+        const FVector HoverStart = Camera->GetComponentLocation();
+        const FVector HoverEnd = HoverStart + Camera->GetForwardVector() * TraceRange;
+        const bool bHoveringDefaultTarget = GetWorld()->LineTraceSingleByChannel(HoverHit, HoverStart, HoverEnd, ECC_Visibility, HoverParams) && HoverHit.GetActor() == HoverGameMode->GetDefaultTarget();
+        HoverGameMode->UpdateDefaultTargetHover(bHoveringDefaultTarget);
     }
 
     const float RecoilAlpha = FMath::Clamp(DeltaSeconds * RecoilSmoothingSpeed, 0.0f, 1.0f);
@@ -138,6 +168,13 @@ void AAimTrainerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
     PlayerInputComponent->BindAction(TEXT("SensitivityDown"), IE_Pressed, this, &AAimTrainerPawn::DecreaseSensitivity);
     PlayerInputComponent->BindAction(TEXT("SensitivityUp"), IE_Pressed, this, &AAimTrainerPawn::IncreaseSensitivity);
     PlayerInputComponent->BindAction(TEXT("Restart"), IE_Pressed, this, &AAimTrainerPawn::RestartTraining);
+    PlayerInputComponent->BindAction(TEXT("Zoom"), IE_Pressed, this, &AAimTrainerPawn::ToggleZoom);
+    PlayerInputComponent->BindAction(TEXT("LeanLeft"), IE_Pressed, this, &AAimTrainerPawn::BeginLeanLeft);
+    PlayerInputComponent->BindAction(TEXT("LeanLeft"), IE_Released, this, &AAimTrainerPawn::EndLeanLeft);
+    PlayerInputComponent->BindAction(TEXT("LeanRight"), IE_Pressed, this, &AAimTrainerPawn::BeginLeanRight);
+    PlayerInputComponent->BindAction(TEXT("LeanRight"), IE_Released, this, &AAimTrainerPawn::EndLeanRight);
+    PlayerInputComponent->BindAction(TEXT("Sprint"), IE_Pressed, this, &AAimTrainerPawn::BeginSprint);
+    PlayerInputComponent->BindAction(TEXT("Sprint"), IE_Released, this, &AAimTrainerPawn::EndSprint);
 }
 
 void AAimTrainerPawn::MoveForward(float Value)
@@ -196,9 +233,9 @@ void AAimTrainerPawn::Fire()
         return;
     }
 
-    if (RecoilYawPattern.IsValidIndex(RecoilShotIndex))
+    if (!RecoilYawPattern.IsEmpty())
     {
-        PendingRecoilYaw -= RecoilYawPattern[RecoilShotIndex];
+        PendingRecoilYaw -= RecoilYawPattern[RecoilShotIndex % RecoilYawPattern.Num()];
     }
     PendingRecoilPitch -= RecoilVerticalKick;
     ++RecoilShotIndex;
@@ -294,6 +331,29 @@ void AAimTrainerPawn::LaunchJump(bool bFromSlide)
 void AAimTrainerPawn::IncreaseSensitivity()
 {
     MouseSensitivity = FMath::Clamp(MouseSensitivity + SensitivityStep, MinMouseSensitivity, MaxMouseSensitivity);
+}
+
+void AAimTrainerPawn::ToggleZoom()
+{
+    ZoomLevel = (ZoomLevel + 1) % 3;
+    Camera->SetFieldOfView(BaseFieldOfView / GetZoomMultiplier());
+}
+
+void AAimTrainerPawn::BeginLeanLeft(){ bLeanLeftHeld = true; }
+void AAimTrainerPawn::EndLeanLeft(){ bLeanLeftHeld = false; }
+void AAimTrainerPawn::BeginLeanRight(){ bLeanRightHeld = true; }
+void AAimTrainerPawn::EndLeanRight(){ bLeanRightHeld = false; }
+
+void AAimTrainerPawn::BeginSprint()
+{
+    bIsSprinting = true;
+    FloatingMovement->MaxSpeed = MoveSpeed * SprintSpeedMultiplier;
+}
+
+void AAimTrainerPawn::EndSprint()
+{
+    bIsSprinting = false;
+    FloatingMovement->MaxSpeed = MoveSpeed;
 }
 
 void AAimTrainerPawn::RestartTraining()

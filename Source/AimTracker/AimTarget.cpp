@@ -8,15 +8,14 @@
 AAimTrainingTarget::AAimTrainingTarget()
 {
     PrimaryActorTick.bCanEverTick = true;
-
-    OuterRing = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("OuterRing"));
+    OuterRing = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("HeadHitbox"));
     SetRootComponent(OuterRing);
     OuterRing->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     OuterRing->SetCollisionResponseToAllChannels(ECR_Ignore);
     OuterRing->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
     OuterRing->SetGenerateOverlapEvents(false);
 
-    Core = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Core"));
+    Core = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TargetBody"));
     Core->SetupAttachment(OuterRing);
     Core->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
@@ -24,7 +23,6 @@ AAimTrainingTarget::AAimTrainingTarget()
     Glow->SetupAttachment(OuterRing);
     Glow->SetIntensity(3500.0f);
     Glow->SetAttenuationRadius(500.0f);
-    Glow->SetLightColor(FLinearColor(1.0f, 0.28f, 0.04f));
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
     if (SphereMesh.Succeeded())
@@ -38,94 +36,75 @@ AAimTrainingTarget::AAimTrainingTarget()
     {
         OuterMaterial = UMaterialInstanceDynamic::Create(ShapeMaterial.Object, this);
         CoreMaterial = UMaterialInstanceDynamic::Create(ShapeMaterial.Object, this);
-        if (OuterMaterial)
-        {
-            OuterRing->SetMaterial(0, OuterMaterial);
-        }
-        if (CoreMaterial)
-        {
-            Core->SetMaterial(0, CoreMaterial);
-        }
+        OuterRing->SetMaterial(0, OuterMaterial);
+        Core->SetMaterial(0, CoreMaterial);
     }
 }
 
-void AAimTrainingTarget::Activate(const FVector& NewLocation, float NewRadius, float NewSpeed, const FVector& NewTravelDirection, EAimTargetMovement NewMovementMode)
+void AAimTrainingTarget::Activate(const FVector& NewLocation, float NewRadius, float NewSpeed, const FVector& NewTravelDirection, EAimTargetMovement NewMovementMode, bool bInPersistentOnHit, bool bInHumanoid)
 {
     HomeLocation = NewLocation;
     TravelDirection = NewTravelDirection.GetSafeNormal();
-    TravelDistance = FMath::FRandRange(120.0f, 420.0f);
+    TravelDistance = bInPersistentOnHit ? FMath::FRandRange(120.0f, 420.0f) : 0.0f;
     TravelSpeed = NewSpeed;
     OscillationOffset = FMath::FRandRange(0.0f, 2.0f * PI);
     MovementMode = NewMovementMode;
+    bPersistentOnHit = bInPersistentOnHit;
+    bHasBeenHit = false;
+    bHumanoid = bInHumanoid;
     ActivationTime = GetWorld()->GetTimeSeconds();
 
-    if (OuterMaterial)
-    {
-        OuterMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.16f, 0.025f, 0.005f));
-    }
-    if (CoreMaterial)
-    {
-        CoreMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(1.0f, 0.2f, 0.01f));
-    }
-    Glow->SetLightColor(FLinearColor(1.0f, 0.28f, 0.04f));
+    const FLinearColor Yellow(1.0f, 0.72f, 0.03f);
+    if (OuterMaterial) OuterMaterial->SetVectorParameterValue(TEXT("Color"), Yellow);
+    if (CoreMaterial) CoreMaterial->SetVectorParameterValue(TEXT("Color"), Yellow);
+    Glow->SetLightColor(Yellow);
     Glow->SetIntensity(3500.0f);
     SetActorLocation(HomeLocation);
     OuterRing->SetWorldScale3D(FVector(NewRadius / 50.0f));
-    Core->SetRelativeLocation(FVector(-NewRadius * 0.28f, 0.0f, 0.0f));
-    Core->SetRelativeScale3D(FVector(0.38f));
+
+    if (bHumanoid)
+    {
+        // Root sphere is the only collision component: the body is visual-only, so only headshots count.
+        Core->SetRelativeLocation(FVector(0.0f, 0.0f, -NewRadius * 2.9f));
+        Core->SetRelativeScale3D(FVector(0.68f, 0.46f, 2.35f));
+    }
+    else
+    {
+        Core->SetRelativeLocation(FVector(-NewRadius * 0.28f, 0.0f, 0.0f));
+        Core->SetRelativeScale3D(FVector(0.38f));
+    }
+}
+
+void AAimTrainingTarget::SetPersistentHover(bool bHovered)
+{
+    if (!bPersistentOnHit) return;
+    const FLinearColor Yellow(1.0f, 0.72f, 0.03f);
+    const FLinearColor Blue(0.03f, 0.38f, 1.0f);
+    const FLinearColor Color = bHovered ? Blue : Yellow;
+    if (OuterMaterial) OuterMaterial->SetVectorParameterValue(TEXT("Color"), Color);
+    if (CoreMaterial) CoreMaterial->SetVectorParameterValue(TEXT("Color"), Color);
+    Glow->SetLightColor(Color);
+    Glow->SetIntensity(bHovered ? 6000.0f : 3500.0f);
 }
 
 void AAimTrainingTarget::MarkHit()
 {
-    if (OuterMaterial)
-    {
-        OuterMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.01f, 0.08f, 0.32f));
-    }
-    if (CoreMaterial)
-    {
-        CoreMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.02f, 0.45f, 1.0f));
-    }
-    Glow->SetLightColor(FLinearColor(0.04f, 0.38f, 1.0f));
+    const FLinearColor Blue(0.03f, 0.38f, 1.0f);
+    if (OuterMaterial) OuterMaterial->SetVectorParameterValue(TEXT("Color"), Blue);
+    if (CoreMaterial) CoreMaterial->SetVectorParameterValue(TEXT("Color"), Blue);
+    Glow->SetLightColor(Blue);
     Glow->SetIntensity(6000.0f);
 }
 
 void AAimTrainingTarget::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
-    if (TravelSpeed <= 0.0f || !GetWorld())
-    {
-        return;
-    }
+    if (!bPersistentOnHit || TravelSpeed <= 0.0f || !GetWorld()) return;
 
+    // The legacy ball keeps its earlier bounded random left/right and vertical motion.
     const float Elapsed = GetWorld()->GetTimeSeconds() - ActivationTime;
     FVector NewLocation = HomeLocation;
-
-    switch (MovementMode)
-    {
-    case EAimTargetMovement::Slide:
-    {
-        const float Phase = FMath::Frac((Elapsed * (0.72f + TravelSpeed * 0.12f)) + OscillationOffset / (2.0f * PI));
-        const float LegProgress = Phase < 0.5f ? Phase * 2.0f : (Phase - 0.5f) * 2.0f;
-        const float EasedProgress = FMath::InterpEaseInOut(0.0f, 1.0f, LegProgress, 2.8f);
-        const float SlideOffset = Phase < 0.5f ? FMath::Lerp(-TravelDistance, TravelDistance, EasedProgress) : FMath::Lerp(TravelDistance, -TravelDistance, EasedProgress);
-        NewLocation += TravelDirection * SlideOffset;
-        NewLocation.Z -= 95.0f;
-        break;
-    }
-    case EAimTargetMovement::JumpPull:
-    {
-        const float Phase = FMath::Frac((Elapsed / 1.85f) + OscillationOffset / (2.0f * PI));
-        const float LegProgress = Phase < 0.5f ? Phase * 2.0f : (Phase - 0.5f) * 2.0f;
-        const float PullProgress = Phase < 0.5f ? FMath::InterpEaseOut(0.0f, 1.0f, LegProgress, 1.6f) : FMath::InterpEaseIn(0.0f, 1.0f, LegProgress, 3.0f);
-        const float PullOffset = Phase < 0.5f ? FMath::Lerp(-TravelDistance, TravelDistance, PullProgress) : FMath::Lerp(TravelDistance, -TravelDistance, PullProgress);
-        NewLocation += TravelDirection * PullOffset + FVector::UpVector * FMath::Sin(Phase * PI) * FMath::Max(260.0f, TravelDistance * 1.8f);
-        break;
-    }
-    case EAimTargetMovement::Strafe:
-    default:
-        NewLocation += TravelDirection * FMath::Sin(Elapsed * TravelSpeed + OscillationOffset) * TravelDistance;
-        break;
-    }
-
+    NewLocation += TravelDirection * FMath::Sin(Elapsed * TravelSpeed + OscillationOffset) * TravelDistance;
+    NewLocation.Z += FMath::Sin(Elapsed * 1.25f + OscillationOffset) * 240.0f;
     SetActorLocation(NewLocation);
 }
