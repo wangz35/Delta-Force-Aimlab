@@ -37,6 +37,45 @@ AAimTrainerPawn::AAimTrainerPawn()
     bUseControllerRotationRoll = false;
 }
 
+float AAimTrainerPawn::GetMouseSensitivity() const
+{
+    switch (ZoomLevel)
+    {
+    case 1: return MouseSensitivity3_5x;
+    case 2: return MouseSensitivity7_25x;
+    default: return MouseSensitivity1x;
+    }
+}
+
+float& AAimTrainerPawn::GetActiveMouseSensitivity()
+{
+    switch (ZoomLevel)
+    {
+    case 1: return MouseSensitivity3_5x;
+    case 2: return MouseSensitivity7_25x;
+    default: return MouseSensitivity1x;
+    }
+}
+
+float AAimTrainerPawn::GetScopeFieldOfView() const
+{
+    const float Magnification = GetZoomMultiplier();
+    const float HipHalfFovRadians = FMath::DegreesToRadians(BaseFieldOfView * 0.5f);
+    return FMath::RadiansToDegrees(2.0f * FMath::Atan(FMath::Tan(HipHalfFovRadians) / Magnification));
+}
+
+float AAimTrainerPawn::GetMonitorDistanceSensitivityScale() const
+{
+    if (ZoomLevel == 0) return 1.0f;
+    const float HipHalfFovRadians = FMath::DegreesToRadians(BaseFieldOfView * 0.5f);
+    const float ScopeHalfFovRadians = FMath::DegreesToRadians(GetScopeFieldOfView() * 0.5f);
+    const float HipTangent = FMath::Tan(HipHalfFovRadians);
+    const float ScopeTangent = FMath::Tan(ScopeHalfFovRadians);
+    const float ReferenceDistance = FMath::Max(0.0f, MonitorDistanceCoefficient * 0.5f);
+    // Monitor-distance matching at a configurable vertical-screen reference distance.
+    return (ScopeTangent / HipTangent) * (1.0f + FMath::Square(ReferenceDistance * HipTangent)) / (1.0f + FMath::Square(ReferenceDistance * ScopeTangent));
+}
+
 float AAimTrainerPawn::GetJumpCrosshairOffset() const
 {
     if (!bIsJumping || JumpVerticalVelocity <= 0.0f)
@@ -66,12 +105,15 @@ void AAimTrainerPawn::Tick(float DeltaSeconds)
     const float LeanDirection = bLeanLeftHeld == bLeanRightHeld ? 0.0f : (bLeanRightHeld ? 1.0f : -1.0f);
     CurrentLeanAngle = FMath::FInterpTo(CurrentLeanAngle, LeanDirection * LeanAngle, DeltaSeconds, LeanSpeed);
     CurrentLeanOffset = FMath::FInterpTo(CurrentLeanOffset, LeanDirection * LeanSideOffset, DeltaSeconds, LeanSpeed);
+    CurrentLeanYaw = FMath::FInterpTo(CurrentLeanYaw, LeanDirection * LeanAimYawDegrees, DeltaSeconds, LeanSpeed);
     if (Controller)
     {
         FRotator LeanControlRotation = Controller->GetControlRotation();
         LeanControlRotation.Roll = CurrentLeanAngle;
+        LeanControlRotation.Yaw += CurrentLeanYaw - LastAppliedLeanYaw;
         Controller->SetControlRotation(LeanControlRotation);
     }
+    LastAppliedLeanYaw = CurrentLeanYaw;
     FVector LeanCameraLocation = Camera->GetRelativeLocation();
     LeanCameraLocation.Y = CurrentLeanOffset;
     Camera->SetRelativeLocation(LeanCameraLocation);
@@ -103,6 +145,27 @@ void AAimTrainerPawn::Tick(float DeltaSeconds)
     AddControllerPitchInput(AppliedRecoilPitch);
     PendingRecoilYaw -= AppliedRecoilYaw;
     PendingRecoilPitch -= AppliedRecoilPitch;
+
+    if (bScopedRecoilRecentering)
+    {
+        ScopedRecoilReturnYaw += AppliedRecoilYaw;
+        ScopedRecoilReturnPitch += AppliedRecoilPitch;
+        ScopedRecoilReturnDelay = FMath::Max(0.0f, ScopedRecoilReturnDelay - DeltaSeconds);
+        if (ScopedRecoilReturnDelay <= 0.0f && FMath::Abs(PendingRecoilYaw) < 0.002f && FMath::Abs(PendingRecoilPitch) < 0.002f)
+        {
+            const float ReturnAlpha = FMath::Clamp(DeltaSeconds * 13.0f, 0.0f, 1.0f);
+            const float ReturnYaw = ScopedRecoilReturnYaw * ReturnAlpha;
+            const float ReturnPitch = ScopedRecoilReturnPitch * ReturnAlpha;
+            AddControllerYawInput(-ReturnYaw);
+            AddControllerPitchInput(-ReturnPitch);
+            ScopedRecoilReturnYaw -= ReturnYaw;
+            ScopedRecoilReturnPitch -= ReturnPitch;
+            if (FMath::Abs(ScopedRecoilReturnYaw) < 0.001f && FMath::Abs(ScopedRecoilReturnPitch) < 0.001f)
+            {
+                bScopedRecoilRecentering = false;
+            }
+        }
+    }
 
     if (bIsSliding)
     {
@@ -168,7 +231,7 @@ void AAimTrainerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
     PlayerInputComponent->BindAction(TEXT("SensitivityDown"), IE_Pressed, this, &AAimTrainerPawn::DecreaseSensitivity);
     PlayerInputComponent->BindAction(TEXT("SensitivityUp"), IE_Pressed, this, &AAimTrainerPawn::IncreaseSensitivity);
     PlayerInputComponent->BindAction(TEXT("Restart"), IE_Pressed, this, &AAimTrainerPawn::RestartTraining);
-    PlayerInputComponent->BindAction(TEXT("Zoom"), IE_Pressed, this, &AAimTrainerPawn::ToggleZoom);
+    PlayerInputComponent->BindKey(EKeys::RightMouseButton, IE_Pressed, this, &AAimTrainerPawn::ToggleZoom);
     PlayerInputComponent->BindAction(TEXT("LeanLeft"), IE_Pressed, this, &AAimTrainerPawn::BeginLeanLeft);
     PlayerInputComponent->BindAction(TEXT("LeanLeft"), IE_Released, this, &AAimTrainerPawn::EndLeanLeft);
     PlayerInputComponent->BindAction(TEXT("LeanRight"), IE_Pressed, this, &AAimTrainerPawn::BeginLeanRight);
@@ -201,16 +264,30 @@ void AAimTrainerPawn::MoveRight(float Value)
 
 void AAimTrainerPawn::Turn(float Value)
 {
-    AddControllerYawInput(Value * MouseSensitivity);
+    AddControllerYawInput(Value * GetMouseSensitivity() * GetMonitorDistanceSensitivityScale());
 }
 
 void AAimTrainerPawn::LookUp(float Value)
 {
-    AddControllerPitchInput(Value * MouseSensitivity * VerticalSensitivityMultiplier);
+    AddControllerPitchInput(Value * GetMouseSensitivity() * GetMonitorDistanceSensitivityScale() * VerticalSensitivityMultiplier);
 }
 
 void AAimTrainerPawn::BeginFire()
 {
+    if (GetZoomMultiplier() > 1.0f)
+    {
+        Fire();
+        // Scoped fire is click-to-fire: holding the mouse cannot start an automatic burst.
+        bIsFiring = false;
+        FireCooldown = 0.0f;
+        RecoilShotIndex = 0;
+        ScopedRecoilReturnYaw = 0.0f;
+        ScopedRecoilReturnPitch = 0.0f;
+        ScopedRecoilReturnDelay = 0.08f;
+        bScopedRecoilRecentering = true;
+        return;
+    }
+
     if (!bIsFiring)
     {
         bIsFiring = true;
@@ -325,18 +402,20 @@ void AAimTrainerPawn::LaunchJump(bool bFromSlide)
     bIsJumping = true;
 }void AAimTrainerPawn::DecreaseSensitivity()
 {
-    MouseSensitivity = FMath::Clamp(MouseSensitivity - SensitivityStep, MinMouseSensitivity, MaxMouseSensitivity);
+    float& ActiveSensitivity = GetActiveMouseSensitivity();
+    ActiveSensitivity = FMath::Clamp(ActiveSensitivity - SensitivityStep, MinMouseSensitivity, MaxMouseSensitivity);
 }
 
 void AAimTrainerPawn::IncreaseSensitivity()
 {
-    MouseSensitivity = FMath::Clamp(MouseSensitivity + SensitivityStep, MinMouseSensitivity, MaxMouseSensitivity);
+    float& ActiveSensitivity = GetActiveMouseSensitivity();
+    ActiveSensitivity = FMath::Clamp(ActiveSensitivity + SensitivityStep, MinMouseSensitivity, MaxMouseSensitivity);
 }
 
 void AAimTrainerPawn::ToggleZoom()
 {
     ZoomLevel = (ZoomLevel + 1) % 3;
-    Camera->SetFieldOfView(BaseFieldOfView / GetZoomMultiplier());
+    Camera->SetFieldOfView(GetScopeFieldOfView());
 }
 
 void AAimTrainerPawn::BeginLeanLeft(){ bLeanLeftHeld = true; }

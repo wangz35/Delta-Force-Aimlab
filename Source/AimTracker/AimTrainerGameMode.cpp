@@ -183,7 +183,7 @@ void AAimTrainerGameMode::PlaceTarget(AAimTrainingTarget* Target, int32 TargetIn
     if (!IsValid(Target)) return;
     if (TargetIndex == 0)
     {
-        Target->Activate(FVector(2400.0f, 0.0f, 520.0f), 70.0f, 3.12f, FVector::RightVector, EAimTargetMovement::Strafe, true, false);
+        Target->Activate(FVector(500.0f, 0.0f, 520.0f), 70.0f, 0.936f, FVector::RightVector, EAimTargetMovement::Strafe, true, false);
         return;
     }
     Target->Activate(GetTrackingTargetLocation(TargetIndex - 1), 34.0f, 0.0f, FVector::RightVector, EAimTargetMovement::Strafe, false, true);

@@ -45,7 +45,7 @@ void AAimTrainingTarget::Activate(const FVector& NewLocation, float NewRadius, f
 {
     HomeLocation = NewLocation;
     TravelDirection = NewTravelDirection.GetSafeNormal();
-    TravelDistance = bInPersistentOnHit ? FMath::FRandRange(120.0f, 420.0f) : 0.0f;
+    TravelDistance = bInPersistentOnHit ? FMath::FRandRange(750.0f, 1250.0f) : 0.0f;
     TravelSpeed = NewSpeed;
     OscillationOffset = FMath::FRandRange(0.0f, 2.0f * PI);
     MovementMode = NewMovementMode;
@@ -104,7 +104,7 @@ void AAimTrainingTarget::Tick(float DeltaSeconds)
     // The legacy ball keeps its earlier bounded random left/right and vertical motion.
     const float Elapsed = GetWorld()->GetTimeSeconds() - ActivationTime;
     FVector NewLocation = HomeLocation;
-    NewLocation += TravelDirection * FMath::Sin(Elapsed * TravelSpeed + OscillationOffset) * TravelDistance;
+    NewLocation += TravelDirection * FMath::PerlinNoise1D((Elapsed * TravelSpeed * 0.40f) + OscillationOffset) * TravelDistance;
     NewLocation.Z += FMath::Sin(Elapsed * 1.25f + OscillationOffset) * 240.0f;
     SetActorLocation(NewLocation);
 }

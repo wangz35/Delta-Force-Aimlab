@@ -19,7 +19,7 @@ public:
     virtual void Tick(float DeltaSeconds) override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
-    float GetMouseSensitivity() const { return MouseSensitivity; }
+    float GetMouseSensitivity() const;
     float GetZoomMultiplier() const;
     float GetJumpCrosshairOffset() const;
 
@@ -39,6 +39,9 @@ private:
     void IncreaseSensitivity();
     void RestartTraining();
     void ToggleZoom();
+    float& GetActiveMouseSensitivity();
+    float GetScopeFieldOfView() const;
+    float GetMonitorDistanceSensitivityScale() const;
     void BeginLeanLeft();
     void EndLeanLeft();
     void BeginLeanRight();
@@ -65,7 +68,13 @@ private:
     float SprintSpeedMultiplier = 2.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming")
-    float MouseSensitivity = 0.50f;
+    float MouseSensitivity1x = 0.30f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Aiming")
+    float MouseSensitivity3_5x = 0.40f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Aiming")
+    float MouseSensitivity7_25x = 0.40f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming")
     float SensitivityStep = 0.05f;
@@ -82,6 +91,9 @@ private:
     UPROPERTY(EditDefaultsOnly, Category = "Aiming|Zoom")
     float BaseFieldOfView = 90.0f;
 
+    UPROPERTY(EditDefaultsOnly, Category = "Aiming|Zoom")
+    float MonitorDistanceCoefficient = 1.33f;
+
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Lean")
     float LeanAngle = 12.0f;
 
@@ -89,7 +101,10 @@ private:
     float LeanSpeed = 7.5f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Lean")
-    float LeanSideOffset = 18.0f;
+    float LeanSideOffset = 84.0f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Movement|Lean")
+    float LeanAimYawDegrees = 2.1f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Recoil")
     float FireInterval = 0.064516f;
@@ -157,9 +172,15 @@ private:
     int32 RecoilShotIndex = 0;
     float PendingRecoilYaw = 0.0f;
     float PendingRecoilPitch = 0.0f;
+    float ScopedRecoilReturnYaw = 0.0f;
+    float ScopedRecoilReturnPitch = 0.0f;
+    float ScopedRecoilReturnDelay = 0.0f;
+    bool bScopedRecoilRecentering = false;
     int32 ZoomLevel = 0;
     float CurrentLeanAngle = 0.0f;
     float CurrentLeanOffset = 0.0f;
+    float CurrentLeanYaw = 0.0f;
+    float LastAppliedLeanYaw = 0.0f;
     bool bLeanLeftHeld = false;
     bool bLeanRightHeld = false;
     TArray<float> RecoilYawPattern;
