@@ -134,8 +134,12 @@ void AAimTrainerPawn::Tick(float DeltaSeconds)
         FCollisionQueryParams HoverParams(SCENE_QUERY_STAT(AimTrainerHoverTrace), true, this);
         const FVector HoverStart = Camera->GetComponentLocation();
         const FVector HoverEnd = HoverStart + Camera->GetForwardVector() * TraceRange;
-        const bool bHoveringDefaultTarget = GetWorld()->LineTraceSingleByChannel(HoverHit, HoverStart, HoverEnd, ECC_Visibility, HoverParams) && HoverHit.GetActor() == HoverGameMode->GetDefaultTarget();
-        HoverGameMode->UpdateDefaultTargetHover(bHoveringDefaultTarget);
+        AAimTrainingTarget* HoveredTarget = nullptr;
+        if (GetWorld()->LineTraceSingleByChannel(HoverHit, HoverStart, HoverEnd, ECC_Visibility, HoverParams))
+        {
+            HoveredTarget = Cast<AAimTrainingTarget>(HoverHit.GetActor());
+        }
+        HoverGameMode->UpdateAimTargetFocus(HoveredTarget, DeltaSeconds);
     }
 
     const float RecoilAlpha = FMath::Clamp(DeltaSeconds * RecoilSmoothingSpeed, 0.0f, 1.0f);
@@ -238,6 +242,12 @@ void AAimTrainerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
     PlayerInputComponent->BindAction(TEXT("LeanRight"), IE_Released, this, &AAimTrainerPawn::EndLeanRight);
     PlayerInputComponent->BindAction(TEXT("Sprint"), IE_Pressed, this, &AAimTrainerPawn::BeginSprint);
     PlayerInputComponent->BindAction(TEXT("Sprint"), IE_Released, this, &AAimTrainerPawn::EndSprint);
+    PlayerInputComponent->BindKey(EKeys::One, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode1);
+    PlayerInputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode2);
+    PlayerInputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode3);
+    PlayerInputComponent->BindKey(EKeys::NumPadOne, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode1);
+    PlayerInputComponent->BindKey(EKeys::NumPadTwo, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode2);
+    PlayerInputComponent->BindKey(EKeys::NumPadThree, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode3);
 }
 
 void AAimTrainerPawn::MoveForward(float Value)
@@ -433,6 +443,21 @@ void AAimTrainerPawn::EndSprint()
 {
     bIsSprinting = false;
     FloatingMovement->MaxSpeed = MoveSpeed;
+}
+
+void AAimTrainerPawn::SelectTrainingMode1()
+{
+    if (AAimTrainerGameMode* GameMode = Cast<AAimTrainerGameMode>(UGameplayStatics::GetGameMode(this))) GameMode->SetTrainingMode(1);
+}
+
+void AAimTrainerPawn::SelectTrainingMode2()
+{
+    if (AAimTrainerGameMode* GameMode = Cast<AAimTrainerGameMode>(UGameplayStatics::GetGameMode(this))) GameMode->SetTrainingMode(2);
+}
+
+void AAimTrainerPawn::SelectTrainingMode3()
+{
+    if (AAimTrainerGameMode* GameMode = Cast<AAimTrainerGameMode>(UGameplayStatics::GetGameMode(this))) GameMode->SetTrainingMode(3);
 }
 
 void AAimTrainerPawn::RestartTraining()

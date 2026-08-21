@@ -35,7 +35,7 @@ void AAimTrainerHUD::DrawHUD()
     Canvas->K2_DrawBox(FVector2D(28.0f, 24.0f), FVector2D(350.0f, 94.0f), 1.0f, FLinearColor(0.008f, 0.011f, 0.014f, 0.70f));
     Canvas->K2_DrawBox(FVector2D(30.0f, 26.0f), FVector2D(4.0f, 90.0f), 1.0f, CrosshairGreen);
     DrawLabel(TEXT("AIM // RANGE"), FVector2D(52.0f, 37.0f), Orange, 1.25f);
-    DrawLabel(TEXT("SLOW HORIZONTAL TRACKING"), FVector2D(53.0f, 66.0f), Dim, 0.82f);
+    DrawLabel(FString::Printf(TEXT("MODE %d  //  KEYS 1-3"), GameMode->GetTrainingMode()), FVector2D(53.0f, 66.0f), Dim, 0.82f);
     DrawLabel(FString::Printf(TEXT("HITS %03d     SHOTS %03d     ACC %05.1f%%"), GameMode->GetHits(), GameMode->GetShots(), GameMode->GetAccuracy()), FVector2D(53.0f, 91.0f), PaleOrange, 0.88f);
 
     const FString TimerText = FString::Printf(TEXT("%05.1f"), GameMode->GetTimeRemaining());

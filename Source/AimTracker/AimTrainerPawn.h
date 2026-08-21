@@ -48,6 +48,9 @@ private:
     void EndLeanRight();
     void BeginSprint();
     void EndSprint();
+    void SelectTrainingMode1();
+    void SelectTrainingMode2();
+    void SelectTrainingMode3();
 
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TObjectPtr<UCapsuleComponent> Capsule;
