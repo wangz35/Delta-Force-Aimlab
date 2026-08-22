@@ -27,6 +27,7 @@ public:
 
     void Activate(const FVector& NewLocation, float NewRadius, float NewSpeed, const FVector& NewTravelDirection, EAimTargetMovement NewMovementMode, bool bInPersistentOnHit, bool bInHumanoid, bool bInHorizontalOnly = false);
     void ActivateJumpArc(const FVector& StartLocation, const FVector& LandingLocation, float ArcHeight, float Duration);
+    void ActivateHorizontalGaze(const FVector& NewLocation, float NewRadius, float NewSpeed, float NewTravelDistance);
     void MarkHit();
     void SetPersistentHover(bool bHovered);
     bool AddGazeFocus(float DeltaSeconds);

@@ -9,6 +9,8 @@ namespace
 {
     const FLinearColor TargetYellow(1.0f, 0.72f, 0.03f);
     const FLinearColor TargetBlue(0.03f, 0.38f, 1.0f);
+    constexpr float GazeCompletionSeconds = 0.4f;
+    constexpr float HumanoidHeadScaleMultiplier = 1.20f;
 }
 
 AAimTrainingTarget::AAimTrainingTarget()
@@ -59,7 +61,7 @@ void AAimTrainingTarget::Activate(const FVector& NewLocation, float NewRadius, f
 {
     HomeLocation = NewLocation;
     TravelDirection = NewTravelDirection.GetSafeNormal();
-    TravelDistance = bInPersistentOnHit ? (bInHorizontalOnly ? 2000.0f : FMath::FRandRange(750.0f, 1250.0f)) : 0.0f;
+    TravelDistance = bInHorizontalOnly ? 2000.0f : (bInPersistentOnHit ? FMath::FRandRange(750.0f, 1250.0f) : 0.0f);
     TravelSpeed = NewSpeed;
     OscillationOffset = FMath::FRandRange(0.0f, 2.0f * PI);
     CurrentHorizontalOffset = bInHorizontalOnly ? FMath::FRandRange(-TravelDistance * 0.35f, TravelDistance * 0.35f) : 0.0f;
@@ -77,13 +79,14 @@ void AAimTrainingTarget::Activate(const FVector& NewLocation, float NewRadius, f
 
     Core->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     ApplyTargetColor(TargetYellow, 3500.0f);
-    SetActorLocation(HomeLocation);
-    OuterRing->SetWorldScale3D(FVector(NewRadius / 50.0f));
+    const float HeadScaleMultiplier = bHumanoid ? HumanoidHeadScaleMultiplier : 1.0f;
+    OuterRing->SetWorldScale3D(FVector((NewRadius / 50.0f) * HeadScaleMultiplier));
+    SetActorLocation(HomeLocation + (bHorizontalOnly ? TravelDirection * CurrentHorizontalOffset : FVector::ZeroVector));
 
     if (bHumanoid)
     {
-        Core->SetRelativeLocation(FVector(0.0f, 0.0f, -NewRadius * 11.85f));
-        Core->SetRelativeScale3D(FVector(0.68f, 0.46f, 7.05f));
+        Core->SetRelativeLocation(FVector(0.0f, 0.0f, -NewRadius * 10.665f) / HeadScaleMultiplier);
+        Core->SetRelativeScale3D(FVector(0.68f, 0.46f, 6.345f) / HeadScaleMultiplier);
     }
     else
     {
@@ -107,6 +110,17 @@ void AAimTrainingTarget::ActivateJumpArc(const FVector& StartLocation, const FVe
     Core->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 }
 
+void AAimTrainingTarget::ActivateHorizontalGaze(const FVector& NewLocation, float NewRadius, float NewSpeed, float NewTravelDistance)
+{
+    Activate(NewLocation, NewRadius, NewSpeed, FVector::RightVector, EAimTargetMovement::Strafe, false, true, true);
+    TravelDistance = FMath::Max(100.0f, NewTravelDistance);
+    CurrentHorizontalOffset = FMath::FRandRange(-TravelDistance * 0.65f, TravelDistance * 0.65f);
+    SetActorLocation(HomeLocation + TravelDirection * CurrentHorizontalOffset);
+    bGazeTarget = true;
+    Core->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    Core->SetCollisionResponseToAllChannels(ECR_Ignore);
+    Core->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+}
 void AAimTrainingTarget::SetPersistentHover(bool bHovered)
 {
     if (!bPersistentOnHit) return;
@@ -117,9 +131,9 @@ bool AAimTrainingTarget::AddGazeFocus(float DeltaSeconds)
 {
     if (!bGazeTarget) return false;
     GazeFocusSeconds += FMath::Max(0.0f, DeltaSeconds);
-    const float Progress = FMath::Clamp(GazeFocusSeconds, 0.0f, 1.0f);
+    const float Progress = FMath::Clamp(GazeFocusSeconds / GazeCompletionSeconds, 0.0f, 1.0f);
     ApplyTargetColor(FMath::Lerp(TargetYellow, TargetBlue, Progress), FMath::Lerp(3500.0f, 6000.0f, Progress));
-    return GazeFocusSeconds >= 1.0f;
+    return GazeFocusSeconds >= GazeCompletionSeconds;
 }
 
 void AAimTrainingTarget::MarkHit()
@@ -144,7 +158,7 @@ void AAimTrainingTarget::Tick(float DeltaSeconds)
         return;
     }
 
-    if (!bPersistentOnHit || TravelSpeed <= 0.0f) return;
+    if (TravelSpeed <= 0.0f || (!bPersistentOnHit && !bGazeTarget)) return;
 
     FVector NewLocation = HomeLocation;
     if (bHorizontalOnly)

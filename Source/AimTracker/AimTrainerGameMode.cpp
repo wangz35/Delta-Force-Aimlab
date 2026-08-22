@@ -9,6 +9,11 @@
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
+namespace
+{
+    const FString RecordsSlotName(TEXT("AimTrainerRecords"));
+    constexpr int32 RecordsUserIndex = 0;
+}
 
 AAimTrainerGameMode::AAimTrainerGameMode()
 {
@@ -20,6 +25,7 @@ AAimTrainerGameMode::AAimTrainerGameMode()
 void AAimTrainerGameMode::BeginPlay()
 {
     Super::BeginPlay();
+    LoadRecords();
     BuildArena();
     APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
     if (PlayerController && !PlayerController->GetPawn())
@@ -35,16 +41,7 @@ void AAimTrainerGameMode::Tick(float DeltaSeconds)
     Super::Tick(DeltaSeconds);
     if (bSessionActive && GetTimeRemaining() <= 0.0f)
     {
-        bSessionActive = false;
-        for (AAimTrainingTarget* Target : Targets)
-        {
-            if (IsValid(Target))
-            {
-                Target->SetActorHiddenInGame(true);
-                Target->SetActorEnableCollision(false);
-            }
-        }
-        ClearJumpTargets();
+        FinishSession();
         return;
     }
 
@@ -55,6 +52,19 @@ void AAimTrainerGameMode::Tick(float DeltaSeconds)
         {
             JumpSpawnAccumulator -= JumpTargetSpawnInterval;
             SpawnJumpTarget();
+        }
+    }
+
+    if (bSessionActive && CurrentTrainingMode == 4)
+    {
+        HorizontalBotTargets.RemoveAll([](const TObjectPtr<AAimTrainingTarget>& Target)
+        {
+            return !IsValid(Target);
+        });
+        const int32 MissingBotCount = FMath::Max(0, HorizontalBotCount - HorizontalBotTargets.Num());
+        for (int32 Index = 0; Index < MissingBotCount; ++Index)
+        {
+            SpawnHorizontalBot();
         }
     }
 }
@@ -104,18 +114,19 @@ void AAimTrainerGameMode::UpdateAimTargetFocus(AAimTrainingTarget* HoveredTarget
         }
     }
 
-    if (CurrentTrainingMode == 3 && IsValid(HoveredTarget) && HoveredTarget->IsGazeTarget() && JumpTargets.Contains(HoveredTarget))
+    if (!bSessionActive || !IsValid(HoveredTarget) || !HoveredTarget->IsGazeTarget()) return;
+
+    const bool bTrackedJumpBot = (CurrentTrainingMode == 3 || CurrentTrainingMode == 5) && JumpTargets.Contains(HoveredTarget);
+    const bool bTrackedHorizontalBot = CurrentTrainingMode == 4 && HorizontalBotTargets.Contains(HoveredTarget);
+    if ((bTrackedJumpBot || bTrackedHorizontalBot) && HoveredTarget->AddGazeFocus(DeltaSeconds))
     {
-        if (HoveredTarget->AddGazeFocus(DeltaSeconds))
-        {
-            RemoveJumpTarget(HoveredTarget);
-        }
+        RegisterBotElimination(HoveredTarget);
     }
 }
 
 void AAimTrainerGameMode::SetTrainingMode(int32 NewMode)
 {
-    if (NewMode < 1 || NewMode > 3) return;
+    if (NewMode < 1 || NewMode > 5) return;
     CurrentTrainingMode = NewMode;
     RestartSession();
 }
@@ -124,12 +135,14 @@ void AAimTrainerGameMode::RestartSession()
 {
     Hits = 0;
     Shots = 0;
+    BotEliminations = 0;
     LastReactionMs = 0.0f;
     TotalReactionMs = 0.0f;
     bSessionActive = true;
     SessionStartTime = GetWorld()->GetTimeSeconds();
     JumpSpawnAccumulator = 0.0f;
-    ClearJumpTargets();
+    bMode5NextSpawnLeft = true;
+    ClearDynamicBotTargets();
 
     if (Targets.Num() == 0) SpawnTargets();
     for (int32 Index = 0; Index < Targets.Num(); ++Index)
@@ -140,6 +153,27 @@ void AAimTrainerGameMode::RestartSession()
         }
     }
     ApplyTrainingModeVisibility();
+
+    if (CurrentTrainingMode == 4)
+    {
+        for (int32 Index = 0; Index < HorizontalBotCount; ++Index)
+        {
+            SpawnHorizontalBot();
+        }
+    }
+    else if (CurrentTrainingMode == 5)
+    {
+        if (AAimTrainerPawn* TrainingPawn = Cast<AAimTrainerPawn>(UGameplayStatics::GetPlayerPawn(this, 0)))
+        {
+            TrainingPawn->SetActorLocation(FVector::ZeroVector, false, nullptr, ETeleportType::TeleportPhysics);
+            TrainingPawn->SetActorRotation(FRotator::ZeroRotator, ETeleportType::TeleportPhysics);
+        }
+        if (APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0))
+        {
+            PlayerController->SetControlRotation(FRotator::ZeroRotator);
+        }
+        SpawnMode5JumpTarget();
+    }
 }
 
 float AAimTrainerGameMode::GetTimeRemaining() const
@@ -157,18 +191,86 @@ float AAimTrainerGameMode::GetAverageReactionMs() const
     return Hits > 0 ? TotalReactionMs / static_cast<float>(Hits) : 0.0f;
 }
 
+int32 AAimTrainerGameMode::GetBestBotEliminations() const
+{
+    if (!Records) return BotEliminations;
+    const int32 SavedBest = CurrentTrainingMode == 3
+        ? Records->Mode3BestBots
+        : (CurrentTrainingMode == 4 ? Records->Mode4BestBots : 0);
+    return FMath::Max(SavedBest, BotEliminations);
+}
+
+void AAimTrainerGameMode::FinishSession()
+{
+    if (!bSessionActive) return;
+    bSessionActive = false;
+
+    bool bNewRecord = false;
+    if (Records && CurrentTrainingMode == 3 && BotEliminations > Records->Mode3BestBots)
+    {
+        Records->Mode3BestBots = BotEliminations;
+        bNewRecord = true;
+    }
+    else if (Records && CurrentTrainingMode == 4 && BotEliminations > Records->Mode4BestBots)
+    {
+        Records->Mode4BestBots = BotEliminations;
+        bNewRecord = true;
+    }
+    if (bNewRecord)
+    {
+        SaveRecords();
+    }
+
+    for (AAimTrainingTarget* Target : Targets)
+    {
+        if (IsValid(Target))
+        {
+            Target->SetActorHiddenInGame(true);
+            Target->SetActorEnableCollision(false);
+        }
+    }
+    ClearDynamicBotTargets();
+}
+
+void AAimTrainerGameMode::LoadRecords()
+{
+    if (UGameplayStatics::DoesSaveGameExist(RecordsSlotName, RecordsUserIndex))
+    {
+        Records = Cast<UAimTrainerSaveGame>(UGameplayStatics::LoadGameFromSlot(RecordsSlotName, RecordsUserIndex));
+    }
+    if (!Records)
+    {
+        Records = Cast<UAimTrainerSaveGame>(UGameplayStatics::CreateSaveGameObject(UAimTrainerSaveGame::StaticClass()));
+    }
+    if (Records)
+    {
+        Records->Mode3BestBots = FMath::Max(0, Records->Mode3BestBots);
+        Records->Mode4BestBots = FMath::Max(0, Records->Mode4BestBots);
+    }
+}
+
+void AAimTrainerGameMode::SaveRecords()
+{
+    if (Records)
+    {
+        UGameplayStatics::SaveGameToSlot(Records, RecordsSlotName, RecordsUserIndex);
+    }
+}
+
 void AAimTrainerGameMode::BuildArena()
 {
     UStaticMesh* ArenaCube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
     if (!ArenaCube) return;
 
-    auto SpawnBlock = [this, ArenaCube](const FVector& Location, const FVector& Scale)
+    auto SpawnBlock = [this, ArenaCube](const FVector& Location, const FVector& Scale) -> AStaticMeshActor*
     {
         if (AStaticMeshActor* Block = GetWorld()->SpawnActor<AStaticMeshActor>(Location, FRotator::ZeroRotator))
         {
             Block->GetStaticMeshComponent()->SetStaticMesh(ArenaCube);
             Block->SetActorScale3D(Scale);
+            return Block;
         }
+        return nullptr;
     };
 
     SpawnBlock(FVector(3900.0f, 0.0f, -220.0f), FVector(128.0f, 106.0f, 0.35f));
@@ -178,6 +280,16 @@ void AAimTrainerGameMode::BuildArena()
     SpawnBlock(FVector(3900.0f, 5300.0f, 1190.0f), FVector(128.0f, 0.3f, 27.8f));
     SpawnBlock(FVector(3900.0f, -5300.0f, 1190.0f), FVector(128.0f, 0.3f, 27.8f));
     SpawnBlock(FVector(-1000.0f, 0.0f, 220.0f), FVector(0.35f, 12.0f, 4.4f));
+
+    if (AStaticMeshActor* LeftCover = SpawnBlock(FVector(2600.0f, -3100.0f, 350.0f), FVector(0.4f, 44.0f, 11.0f)))
+    {
+        Mode5CoverWalls.Add(LeftCover);
+    }
+    if (AStaticMeshActor* RightCover = SpawnBlock(FVector(2600.0f, 3100.0f, 350.0f), FVector(0.4f, 44.0f, 11.0f)))
+    {
+        Mode5CoverWalls.Add(RightCover);
+    }
+    SetMode5CoverVisible(false);
 
     auto SpawnArenaLight = [this](const FVector& Location, const FLinearColor& Color)
     {
@@ -232,7 +344,9 @@ bool AAimTrainerGameMode::ShouldShowBaseTarget(int32 TargetIndex) const
 {
     if (CurrentTrainingMode == 1) return TargetIndex == 0 || TargetIndex >= 2;
     if (CurrentTrainingMode == 2) return TargetIndex == 0 || TargetIndex == 1;
-    if (CurrentTrainingMode == 3) return TargetIndex == 1;
+    if (CurrentTrainingMode == 3) return false;
+    if (CurrentTrainingMode == 4) return TargetIndex == 1;
+    if (CurrentTrainingMode == 5) return false;
     return false;
 }
 
@@ -247,6 +361,7 @@ void AAimTrainerGameMode::ApplyTrainingModeVisibility()
             Target->SetActorEnableCollision(bVisible);
         }
     }
+    SetMode5CoverVisible(CurrentTrainingMode == 5);
 }
 
 void AAimTrainerGameMode::RespawnTarget(AAimTrainingTarget* Target, int32 TargetIndex)
@@ -261,6 +376,10 @@ void AAimTrainerGameMode::RespawnTarget(AAimTrainingTarget* Target, int32 Target
 void AAimTrainerGameMode::SpawnJumpTarget()
 {
     if (CurrentTrainingMode != 3 || !bSessionActive) return;
+    JumpTargets.RemoveAll([](const TObjectPtr<AAimTrainingTarget>& Target)
+    {
+        return !IsValid(Target);
+    });
     if (JumpTargets.Num() >= 3)
     {
         RemoveJumpTarget(JumpTargets[0]);
@@ -273,26 +392,137 @@ void AAimTrainerGameMode::SpawnJumpTarget()
     const float Distance = FMath::FRandRange(2200.0f, 3600.0f);
     const FVector StartLocation(Distance, SideSign * FMath::FRandRange(2300.0f, 3200.0f), 210.0f);
     const FVector LandingLocation(Distance + FMath::FRandRange(-350.0f, 350.0f), SideSign * FMath::FRandRange(450.0f, 1050.0f), 210.0f);
-    Target->ActivateJumpArc(StartLocation, LandingLocation, FMath::FRandRange(620.0f, 880.0f), FMath::FRandRange(0.42f, 0.52f));
+    Target->ActivateJumpArc(StartLocation, LandingLocation, FMath::FRandRange(434.0f, 616.0f), FMath::FRandRange(1.05f, 1.30f));
     JumpTargets.Add(Target);
 }
 
 void AAimTrainerGameMode::RemoveJumpTarget(AAimTrainingTarget* Target)
 {
-    if (!IsValid(Target)) return;
     JumpTargets.Remove(Target);
-    Target->Destroy();
+    if (IsValid(Target)) Target->Destroy();
 }
 
-void AAimTrainerGameMode::ClearJumpTargets()
+void AAimTrainerGameMode::SpawnHorizontalBot()
 {
+    if (CurrentTrainingMode != 4 || !bSessionActive) return;
+    AAimTrainingTarget* Target = GetWorld()->SpawnActor<AAimTrainingTarget>();
+    if (!Target) return;
+
+    const FVector SpawnLocation(
+        FMath::FRandRange(2600.0f, 4200.0f),
+        FMath::FRandRange(-850.0f, 850.0f),
+        210.0f);
+    Target->ActivateHorizontalGaze(
+        SpawnLocation,
+        34.0f,
+        FMath::FRandRange(190.0f, 310.0f),
+        FMath::FRandRange(1000.0f, 1850.0f));
+    HorizontalBotTargets.Add(Target);
+}
+
+void AAimTrainerGameMode::RemoveHorizontalBotTarget(AAimTrainingTarget* Target)
+{
+    HorizontalBotTargets.Remove(Target);
+    if (IsValid(Target)) Target->Destroy();
+}
+
+void AAimTrainerGameMode::SpawnMode5JumpTarget()
+{
+    if (CurrentTrainingMode != 5 || !bSessionActive || JumpTargets.Num() > 0)
+    {
+        return;
+    }
+
+    AAimTrainingTarget* Target = GetWorld()->SpawnActor<AAimTrainingTarget>();
+    if (!Target)
+    {
+        return;
+    }
+
+    const float SideSign = bMode5NextSpawnLeft ? -1.0f : 1.0f;
+    const FVector StartLocation(3000.0f, SideSign * 1600.0f, 210.0f);
+    const FVector LandingLocation(3000.0f, SideSign * 450.0f, 210.0f);
+    Target->ActivateJumpArc(
+        StartLocation,
+        LandingLocation,
+        FMath::FRandRange(360.0f, 460.0f),
+        FMath::FRandRange(0.85f, 1.0f));
+    JumpTargets.Add(Target);
+    bMode5NextSpawnLeft = !bMode5NextSpawnLeft;
+}
+
+void AAimTrainerGameMode::ScheduleMode5NextTarget()
+{
+    if (CurrentTrainingMode != 5 || !bSessionActive)
+    {
+        return;
+    }
+
+    GetWorldTimerManager().ClearTimer(Mode5SpawnTimer);
+    GetWorldTimerManager().SetTimer(
+        Mode5SpawnTimer,
+        this,
+        &AAimTrainerGameMode::SpawnMode5JumpTarget,
+        Mode5RespawnDelay,
+        false);
+}
+void AAimTrainerGameMode::RegisterBotElimination(AAimTrainingTarget* Target)
+{
+    if (!bSessionActive || !IsValid(Target)) return;
+
+    if ((CurrentTrainingMode == 3 || CurrentTrainingMode == 5) && JumpTargets.Contains(Target))
+    {
+        const bool bScheduleMode5Target = CurrentTrainingMode == 5;
+        ++BotEliminations;
+        RemoveJumpTarget(Target);
+        if (bScheduleMode5Target)
+        {
+            ScheduleMode5NextTarget();
+        }
+    }
+    else if (CurrentTrainingMode == 4 && HorizontalBotTargets.Contains(Target))
+    {
+        ++BotEliminations;
+        RemoveHorizontalBotTarget(Target);
+        SpawnHorizontalBot();
+    }
+}
+
+void AAimTrainerGameMode::ClearDynamicBotTargets()
+{
+    GetWorldTimerManager().ClearTimer(Mode5SpawnTimer);
+
     for (AAimTrainingTarget* Target : JumpTargets)
     {
         if (IsValid(Target)) Target->Destroy();
     }
     JumpTargets.Reset();
+
+    for (AAimTrainingTarget* Target : HorizontalBotTargets)
+    {
+        if (IsValid(Target)) Target->Destroy();
+    }
+    HorizontalBotTargets.Reset();
 }
 
+void AAimTrainerGameMode::SetMode5CoverVisible(bool bVisible)
+{
+    for (AStaticMeshActor* Wall : Mode5CoverWalls)
+    {
+        if (!IsValid(Wall))
+        {
+            continue;
+        }
+
+        Wall->SetActorHiddenInGame(!bVisible);
+        Wall->SetActorEnableCollision(bVisible);
+        if (UStaticMeshComponent* MeshComponent = Wall->GetStaticMeshComponent())
+        {
+            MeshComponent->SetCollisionEnabled(bVisible ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
+            MeshComponent->SetCollisionResponseToAllChannels(bVisible ? ECR_Block : ECR_Ignore);
+        }
+    }
+}
 FVector AAimTrainerGameMode::GetTrackingTargetLocation(int32 TargetIndex) const
 {
     static constexpr float TargetDistances[] = { 1000.0f, 2000.0f, 5000.0f, 10000.0f };

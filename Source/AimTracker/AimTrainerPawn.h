@@ -51,6 +51,8 @@ private:
     void SelectTrainingMode1();
     void SelectTrainingMode2();
     void SelectTrainingMode3();
+    void SelectTrainingMode4();
+    void SelectTrainingMode5();
 
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TObjectPtr<UCapsuleComponent> Capsule;
@@ -113,19 +115,34 @@ private:
     float FireInterval = 0.064516f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Recoil")
-    float RecoilVerticalKick = 0.29f;
+    float RecoilVerticalKick = 0.145f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Recoil")
     float RecoilSmoothingSpeed = 18.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideDuration = 0.70f;
+    float SlideDuration = 0.65f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideInitialSpeed = 4230.0f;
+    float SlideInitialSpeed = 7000.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideBurstDuration = 0.08f;
+    float SlideBoostSpeedMultiplier = 1.0f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
+    float SlideInitialPhaseEndProgress = 0.20f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
+    float SlideCruiseSpeed = 4230.0f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
+    float SlideSlowdownStartProgress = 0.60f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
+    float SlideSlowdownEndProgress = 1.00f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
+    float SlideTargetDistance = 2500.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
     float SlideBaseSpeed = 2700.0f;
@@ -155,6 +172,9 @@ private:
     float SlideJumpInitialVelocity = 2157.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
+    float SlideJumpAirtimeScale = 0.80f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
     float SlideJumpMinimumForwardSpeed = 1450.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
@@ -167,6 +187,8 @@ private:
     FVector SlideJumpDirection = FVector::ForwardVector;
     FVector AirJumpDirection = FVector::ForwardVector;
     float SlideElapsed = 0.0f;
+    float SlideDistanceTraveled = 0.0f;
+    float SlideCurrentSpeed = 0.0f;
     float JumpBaseHeight = 0.0f;
     float JumpVerticalVelocity = 0.0f;
     float SlideJumpForwardSpeed = 0.0f;
