@@ -26,8 +26,10 @@ public:
     virtual void Tick(float DeltaSeconds) override;
 
     void Activate(const FVector& NewLocation, float NewRadius, float NewSpeed, const FVector& NewTravelDirection, EAimTargetMovement NewMovementMode, bool bInPersistentOnHit, bool bInHumanoid, bool bInHorizontalOnly = false);
-    void ActivateJumpArc(const FVector& StartLocation, const FVector& LandingLocation, float ArcHeight, float Duration);
-    void ActivateHorizontalGaze(const FVector& NewLocation, float NewRadius, float NewSpeed, float NewTravelDistance);
+    void ActivateJumpArc(const FVector& StartLocation, const FVector& LandingLocation, float ArcHeight, float Duration,
+        float PostLandingHorizontalSpeed = 0.0f, float PostLandingHorizontalTravelDistance = 0.0f);
+    void ActivateHorizontalGaze(const FVector& NewLocation, float NewRadius, float NewSpeed, float NewTravelDistance,
+        bool bStartFromEdge = false, float EntrySideSign = 1.0f);
     void MarkHit();
     void SetPersistentHover(bool bHovered);
     bool AddGazeFocus(float DeltaSeconds);
@@ -42,6 +44,10 @@ private:
     TObjectPtr<UStaticMeshComponent> OuterRing;
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TObjectPtr<UStaticMeshComponent> Core;
+    UPROPERTY(VisibleAnywhere, Category = "Components")
+    TObjectPtr<UStaticMeshComponent> LeftArm;
+    UPROPERTY(VisibleAnywhere, Category = "Components")
+    TObjectPtr<UStaticMeshComponent> RightArm;
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TObjectPtr<UPointLightComponent> Glow;
 
@@ -61,12 +67,15 @@ private:
     float JumpArcHeight = 0.0f;
     float JumpArcDuration = 1.0f;
     float JumpArcElapsed = 0.0f;
+    float PostLandingHorizontalSpeed = 0.0f;
+    float PostLandingHorizontalTravelDistance = 0.0f;
     float GazeFocusSeconds = 0.0f;
     bool bPersistentOnHit = false;
     bool bHasBeenHit = false;
     bool bHumanoid = false;
     bool bHorizontalOnly = false;
     bool bJumpArcActive = false;
+    bool bContinueHorizontalAfterJump = false;
     bool bGazeTarget = false;
     EAimTargetMovement MovementMode = EAimTargetMovement::Strafe;
 };

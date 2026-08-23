@@ -281,11 +281,11 @@ void AAimTrainerGameMode::BuildArena()
     SpawnBlock(FVector(3900.0f, -5300.0f, 1190.0f), FVector(128.0f, 0.3f, 27.8f));
     SpawnBlock(FVector(-1000.0f, 0.0f, 220.0f), FVector(0.35f, 12.0f, 4.4f));
 
-    if (AStaticMeshActor* LeftCover = SpawnBlock(FVector(2600.0f, -3100.0f, 350.0f), FVector(0.4f, 44.0f, 11.0f)))
+    if (AStaticMeshActor* LeftCover = SpawnBlock(FVector(2600.0f, -3100.0f, 25.0f), FVector(0.4f, 44.0f, 4.5f)))
     {
         Mode5CoverWalls.Add(LeftCover);
     }
-    if (AStaticMeshActor* RightCover = SpawnBlock(FVector(2600.0f, 3100.0f, 350.0f), FVector(0.4f, 44.0f, 11.0f)))
+    if (AStaticMeshActor* RightCover = SpawnBlock(FVector(2600.0f, 3100.0f, 25.0f), FVector(0.4f, 44.0f, 4.5f)))
     {
         Mode5CoverWalls.Add(RightCover);
     }
@@ -408,15 +408,43 @@ void AAimTrainerGameMode::SpawnHorizontalBot()
     AAimTrainingTarget* Target = GetWorld()->SpawnActor<AAimTrainingTarget>();
     if (!Target) return;
 
-    const FVector SpawnLocation(
-        FMath::FRandRange(2600.0f, 4200.0f),
-        FMath::FRandRange(-850.0f, 850.0f),
-        210.0f);
-    Target->ActivateHorizontalGaze(
-        SpawnLocation,
-        34.0f,
-        FMath::FRandRange(190.0f, 310.0f),
-        FMath::FRandRange(1000.0f, 1850.0f));
+    const float SideSign = FMath::RandBool() ? 1.0f : -1.0f;
+    const float Distance = FMath::FRandRange(2600.0f, 4200.0f);
+    const float HorizontalSpeed = FMath::FRandRange(210.0f, 275.0f);
+    const float HorizontalTravelDistance = FMath::FRandRange(1050.0f, 1650.0f);
+
+    if (FMath::RandBool())
+    {
+        const FVector StartLocation(
+            Distance,
+            SideSign * FMath::FRandRange(1650.0f, 2300.0f),
+            210.0f);
+        const FVector LandingLocation(
+            Distance + FMath::FRandRange(-220.0f, 220.0f),
+            SideSign * FMath::FRandRange(350.0f, 750.0f),
+            210.0f);
+        Target->ActivateJumpArc(
+            StartLocation,
+            LandingLocation,
+            FMath::FRandRange(360.0f, 480.0f),
+            FMath::FRandRange(0.85f, 1.05f),
+            HorizontalSpeed,
+            HorizontalTravelDistance);
+    }
+    else
+    {
+        const FVector LaneCenter(
+            Distance,
+            FMath::FRandRange(-180.0f, 180.0f),
+            210.0f);
+        Target->ActivateHorizontalGaze(
+            LaneCenter,
+            34.0f,
+            HorizontalSpeed,
+            HorizontalTravelDistance,
+            true,
+            SideSign);
+    }
     HorizontalBotTargets.Add(Target);
 }
 

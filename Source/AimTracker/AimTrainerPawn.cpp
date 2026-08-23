@@ -32,13 +32,19 @@ AAimTrainerPawn::AAimTrainerPawn()
 
     // Fire subtracts these samples: positive values pull left, negative values pull right.
     RecoilYawPattern = {
-        // Shots 1-12: progressively pull left (total 0.462 degrees).
-        0.000f, 0.012f, 0.018f, 0.024f, 0.030f, 0.036f, 0.042f, 0.048f, 0.054f, 0.060f, 0.066f, 0.072f,
-        // Shots 13-36: continuously pull right, crossing to the mirrored side (total 0.924 degrees).
-        -0.010f, -0.015f, -0.020f, -0.025f, -0.030f, -0.035f, -0.040f, -0.045f, -0.050f, -0.055f, -0.062f, -0.075f,
-        -0.075f, -0.062f, -0.055f, -0.050f, -0.045f, -0.040f, -0.035f, -0.030f, -0.025f, -0.020f, -0.015f, -0.010f,
-        // Shots 37-48: pull left again and finish at the starting horizontal position (total 0.462 degrees).
-        0.012f, 0.018f, 0.024f, 0.030f, 0.036f, 0.048f, 0.060f, 0.072f, 0.060f, 0.048f, 0.036f, 0.018f
+        // Shots 1-5: pull right (total -0.1925 degrees).
+        -0.0250f, -0.0325f, -0.0400f, -0.0450f, -0.0500f,
+        // Shots 6-15: pull left across the center (total +0.3850 degrees).
+         0.0180f,  0.0260f,  0.0340f,  0.0420f,  0.0520f,
+         0.0520f,  0.0480f,  0.0440f,  0.0380f,  0.0310f,
+        // Shots 16-25: pull right across the center (total -0.3850 degrees).
+        -0.0180f, -0.0260f, -0.0340f, -0.0420f, -0.0520f,
+        -0.0520f, -0.0480f, -0.0440f, -0.0380f, -0.0310f,
+        // Shots 26-35: pull left across the center (total +0.3850 degrees).
+         0.0180f,  0.0260f,  0.0340f,  0.0420f,  0.0520f,
+         0.0520f,  0.0480f,  0.0440f,  0.0380f,  0.0310f,
+        // Shots 36-40: pull right and finish exactly at the starting horizontal position.
+        -0.0500f, -0.0450f, -0.0400f, -0.0325f, -0.0250f
     };
 
     AutoPossessPlayer = EAutoReceiveInput::Player0;

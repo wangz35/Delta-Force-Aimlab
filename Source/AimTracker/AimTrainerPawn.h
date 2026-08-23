@@ -172,7 +172,7 @@ private:
     float SlideJumpInitialVelocity = 2157.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
-    float SlideJumpAirtimeScale = 0.80f;
+    float SlideJumpAirtimeScale = 0.929809f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
     float SlideJumpMinimumForwardSpeed = 1450.0f;
@@ -181,7 +181,7 @@ private:
     float SlideJumpForwardDeceleration = 600.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
-    float SlideJumpMomentumMultiplier = 1.35f;
+    float SlideJumpMomentumMultiplier = 1.475525f;
 
     FVector SlideDirection = FVector::ForwardVector;
     FVector SlideJumpDirection = FVector::ForwardVector;
