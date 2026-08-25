@@ -118,13 +118,16 @@ private:
     float RecoilVerticalKick = 0.145f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Recoil")
+    float RecoilHorizontalKickMultiplier = 1.50f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Recoil")
     float RecoilSmoothingSpeed = 18.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
     float SlideDuration = 0.65f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideInitialSpeed = 7000.0f;
+    float SlideInitialSpeed = 4600.968f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
     float SlideBoostSpeedMultiplier = 1.0f;
@@ -133,19 +136,19 @@ private:
     float SlideInitialPhaseEndProgress = 0.20f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideCruiseSpeed = 4230.0f;
+    float SlideCruiseSpeed = 2780.299f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideSlowdownStartProgress = 0.60f;
+    float SlideSlowdownStartProgress = 0.75f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
     float SlideSlowdownEndProgress = 1.00f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideTargetDistance = 2500.0f;
+    float SlideTargetDistance = 1750.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideBaseSpeed = 2700.0f;
+    float SlideBaseSpeed = 1780.688f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
     float StandingCameraHeight = 28.0f;
@@ -181,7 +184,7 @@ private:
     float SlideJumpForwardDeceleration = 600.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
-    float SlideJumpMomentumMultiplier = 1.475525f;
+    float SlideJumpMomentumMultiplier = 1.0f;
 
     FVector SlideDirection = FVector::ForwardVector;
     FVector SlideJumpDirection = FVector::ForwardVector;

@@ -10,7 +10,7 @@ namespace
     const FLinearColor TargetYellow(1.0f, 0.72f, 0.03f);
     const FLinearColor TargetBlue(0.03f, 0.38f, 1.0f);
     constexpr float GazeCompletionSeconds = 0.4f;
-    constexpr float HumanoidHeadScaleMultiplier = 1.20f;
+    constexpr float HumanoidHeadScaleMultiplier = 0.84f;
 }
 
 AAimTrainingTarget::AAimTrainingTarget()

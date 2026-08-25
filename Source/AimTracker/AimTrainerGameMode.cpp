@@ -141,7 +141,6 @@ void AAimTrainerGameMode::RestartSession()
     bSessionActive = true;
     SessionStartTime = GetWorld()->GetTimeSeconds();
     JumpSpawnAccumulator = 0.0f;
-    bMode5NextSpawnLeft = true;
     ClearDynamicBotTargets();
 
     if (Targets.Num() == 0) SpawnTargets();
@@ -172,7 +171,7 @@ void AAimTrainerGameMode::RestartSession()
         {
             PlayerController->SetControlRotation(FRotator::ZeroRotator);
         }
-        SpawnMode5JumpTarget();
+        SpawnMode5PeekTarget();
     }
 }
 
@@ -454,9 +453,18 @@ void AAimTrainerGameMode::RemoveHorizontalBotTarget(AAimTrainingTarget* Target)
     if (IsValid(Target)) Target->Destroy();
 }
 
-void AAimTrainerGameMode::SpawnMode5JumpTarget()
+void AAimTrainerGameMode::SpawnMode5PeekTarget()
 {
-    if (CurrentTrainingMode != 5 || !bSessionActive || JumpTargets.Num() > 0)
+    if (CurrentTrainingMode != 5 || !bSessionActive)
+    {
+        return;
+    }
+
+    JumpTargets.RemoveAll([](const TObjectPtr<AAimTrainingTarget>& Target)
+    {
+        return !IsValid(Target);
+    });
+    if (JumpTargets.Num() > 0)
     {
         return;
     }
@@ -467,16 +475,37 @@ void AAimTrainerGameMode::SpawnMode5JumpTarget()
         return;
     }
 
-    const float SideSign = bMode5NextSpawnLeft ? -1.0f : 1.0f;
-    const FVector StartLocation(3000.0f, SideSign * 1600.0f, 210.0f);
-    const FVector LandingLocation(3000.0f, SideSign * 450.0f, 210.0f);
-    Target->ActivateJumpArc(
-        StartLocation,
-        LandingLocation,
-        FMath::FRandRange(360.0f, 460.0f),
-        FMath::FRandRange(0.85f, 1.0f));
+    const float SideSign = FMath::RandBool() ? 1.0f : -1.0f;
+    const float Distance = FMath::FRandRange(2920.0f, 3080.0f);
+    const float HorizontalSpeed = FMath::FRandRange(420.0f, 550.0f);
+    const float HorizontalTravelDistance = FMath::FRandRange(700.0f, 900.0f);
+    const FVector LaneCenter(Distance, SideSign * 450.0f, 210.0f);
+
+    if (FMath::RandBool())
+    {
+        const FVector StartLocation(
+            Distance,
+            SideSign * (450.0f + HorizontalTravelDistance),
+            210.0f);
+        Target->ActivateJumpArc(
+            StartLocation,
+            LaneCenter,
+            FMath::FRandRange(360.0f, 460.0f),
+            FMath::FRandRange(0.85f, 1.0f),
+            HorizontalSpeed,
+            HorizontalTravelDistance);
+    }
+    else
+    {
+        Target->ActivateHorizontalGaze(
+            LaneCenter,
+            34.0f,
+            HorizontalSpeed,
+            HorizontalTravelDistance,
+            true,
+            SideSign);
+    }
     JumpTargets.Add(Target);
-    bMode5NextSpawnLeft = !bMode5NextSpawnLeft;
 }
 
 void AAimTrainerGameMode::ScheduleMode5NextTarget()
@@ -490,7 +519,7 @@ void AAimTrainerGameMode::ScheduleMode5NextTarget()
     GetWorldTimerManager().SetTimer(
         Mode5SpawnTimer,
         this,
-        &AAimTrainerGameMode::SpawnMode5JumpTarget,
+        &AAimTrainerGameMode::SpawnMode5PeekTarget,
         Mode5RespawnDelay,
         false);
 }

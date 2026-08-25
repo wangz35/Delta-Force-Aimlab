@@ -32,7 +32,7 @@ void AAimTrainerHUD::DrawHUD()
     case 2: ModeName = TEXT("DUAL TRACKING"); break;
     case 3: ModeName = TEXT("JUMP BOTS"); break;
     case 4: ModeName = TEXT("MIXED PEEK BOTS + BALL"); break;
-    case 5: ModeName = TEXT("ALTERNATING COVER PEEKS"); break;
+    case 5: ModeName = TEXT("RANDOM COVER PEEKS"); break;
     default: ModeName = TEXT("STANDARD RANGE"); break;
     }
 

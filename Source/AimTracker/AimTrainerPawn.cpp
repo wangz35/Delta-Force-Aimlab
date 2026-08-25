@@ -401,7 +401,7 @@ void AAimTrainerPawn::Fire()
 
     if (!RecoilYawPattern.IsEmpty())
     {
-        PendingRecoilYaw -= RecoilYawPattern[RecoilShotIndex % RecoilYawPattern.Num()];
+        PendingRecoilYaw -= RecoilYawPattern[RecoilShotIndex % RecoilYawPattern.Num()] * RecoilHorizontalKickMultiplier;
     }
     PendingRecoilPitch -= RecoilVerticalKick;
     ++RecoilShotIndex;
@@ -483,7 +483,7 @@ void AAimTrainerPawn::LaunchJump(bool bFromSlide)
     {
         const float ExitSlideSpeed = FMath::Max(SlideBaseSpeed, SlideCurrentSpeed);
         SlideJumpDirection = SlideDirection;
-        SlideJumpForwardSpeed = FMath::Max(SlideJumpMinimumForwardSpeed, ExitSlideSpeed * 0.84f) * SlideJumpMomentumMultiplier;
+        SlideJumpForwardSpeed = FMath::Max(SlideJumpMinimumForwardSpeed, ExitSlideSpeed * SlideJumpMomentumMultiplier);
         SlideCurrentSpeed = 0.0f;
     }
     else

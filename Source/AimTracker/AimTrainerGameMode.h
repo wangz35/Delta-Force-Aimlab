@@ -60,7 +60,7 @@ private:
     void RemoveJumpTarget(AAimTrainingTarget* Target);
     void SpawnHorizontalBot();
     void RemoveHorizontalBotTarget(AAimTrainingTarget* Target);
-    void SpawnMode5JumpTarget();
+    void SpawnMode5PeekTarget();
     void ScheduleMode5NextTarget();
     void SetMode5CoverVisible(bool bVisible);
     void ClearDynamicBotTargets();
@@ -100,6 +100,5 @@ private:
     float TotalReactionMs = 0.0f;
     float JumpSpawnAccumulator = 0.0f;
     FTimerHandle Mode5SpawnTimer;
-    bool bMode5NextSpawnLeft = true;
     bool bSessionActive = false;
 };
