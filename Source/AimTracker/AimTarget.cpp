@@ -71,11 +71,11 @@ void AAimTrainingTarget::ApplyTargetColor(const FLinearColor& Color, float GlowI
     Glow->SetIntensity(GlowIntensity);
 }
 
-void AAimTrainingTarget::Activate(const FVector& NewLocation, float NewRadius, float NewSpeed, const FVector& NewTravelDirection, EAimTargetMovement NewMovementMode, bool bInPersistentOnHit, bool bInHumanoid, bool bInHorizontalOnly)
+void AAimTrainingTarget::Activate(const FVector& NewLocation, float NewRadius, float NewSpeed, const FVector& NewTravelDirection, EAimTargetMovement NewMovementMode, bool bInPersistentOnHit, bool bInHumanoid, bool bInHorizontalOnly, float InHorizontalTravelDistance, bool bInBodyHitEnabled)
 {
     HomeLocation = NewLocation;
     TravelDirection = NewTravelDirection.GetSafeNormal();
-    TravelDistance = bInHorizontalOnly ? 2000.0f : (bInPersistentOnHit ? FMath::FRandRange(750.0f, 1250.0f) : 0.0f);
+    TravelDistance = bInHorizontalOnly ? FMath::Max(100.0f, InHorizontalTravelDistance) : (bInPersistentOnHit ? FMath::FRandRange(750.0f, 1250.0f) : 0.0f);
     TravelSpeed = NewSpeed;
     OscillationOffset = FMath::FRandRange(0.0f, 2.0f * PI);
     CurrentHorizontalOffset = bInHorizontalOnly ? FMath::FRandRange(-TravelDistance * 0.35f, TravelDistance * 0.35f) : 0.0f;
@@ -117,6 +117,19 @@ void AAimTrainingTarget::Activate(const FVector& NewLocation, float NewRadius, f
         RightArm->SetRelativeRotation(FRotator(0.0f, 0.0f, -5.0f));
         RightArm->SetRelativeScale3D(ArmScale);
         RightArm->SetVisibility(true);
+
+        if (bInBodyHitEnabled)
+        {
+            Core->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+            Core->SetCollisionResponseToAllChannels(ECR_Ignore);
+            Core->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+            LeftArm->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+            LeftArm->SetCollisionResponseToAllChannels(ECR_Ignore);
+            LeftArm->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+            RightArm->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+            RightArm->SetCollisionResponseToAllChannels(ECR_Ignore);
+            RightArm->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+        }
     }
     else
     {
@@ -230,7 +243,7 @@ void AAimTrainingTarget::Tick(float DeltaSeconds)
         return;
     }
 
-    if (TravelSpeed <= 0.0f || (!bPersistentOnHit && !bGazeTarget)) return;
+    if (TravelSpeed <= 0.0f || (!bPersistentOnHit && !bGazeTarget && !bHorizontalOnly)) return;
 
     FVector NewLocation = HomeLocation;
     if (bHorizontalOnly)

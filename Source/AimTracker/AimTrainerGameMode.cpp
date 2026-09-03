@@ -336,13 +336,22 @@ void AAimTrainerGameMode::PlaceTarget(AAimTrainingTarget* Target, int32 TargetIn
         Target->Activate(FVector(2000.0f, 0.0f, 520.0f), 22.0f, 210.0f, FVector::RightVector, EAimTargetMovement::Strafe, true, false, true);
         return;
     }
-    Target->Activate(GetTrackingTargetLocation(TargetIndex - 2), 34.0f, 0.0f, FVector::RightVector, EAimTargetMovement::Strafe, false, true);
+    const FVector TargetLocation = GetTrackingTargetLocation(TargetIndex - 2);
+    if (CurrentTrainingMode == 2)
+    {
+        // All distance targets use the same world-space tracking speed.
+        const float HorizontalSpeed = 420.0f;
+        const float HorizontalTravelDistance = TargetLocation.X * 0.40f;
+        Target->Activate(TargetLocation, 34.0f, HorizontalSpeed, FVector::RightVector, EAimTargetMovement::Strafe, false, true, true, HorizontalTravelDistance, true);
+        return;
+    }
+    Target->Activate(TargetLocation, 34.0f, 0.0f, FVector::RightVector, EAimTargetMovement::Strafe, false, true);
 }
 
 bool AAimTrainerGameMode::ShouldShowBaseTarget(int32 TargetIndex) const
 {
     if (CurrentTrainingMode == 1) return TargetIndex == 0 || TargetIndex >= 2;
-    if (CurrentTrainingMode == 2) return TargetIndex == 0 || TargetIndex == 1;
+    if (CurrentTrainingMode == 2) return TargetIndex == 0 || TargetIndex >= 2;
     if (CurrentTrainingMode == 3) return false;
     if (CurrentTrainingMode == 4) return TargetIndex == 1;
     if (CurrentTrainingMode == 5) return false;

@@ -25,7 +25,7 @@ public:
     AAimTrainingTarget();
     virtual void Tick(float DeltaSeconds) override;
 
-    void Activate(const FVector& NewLocation, float NewRadius, float NewSpeed, const FVector& NewTravelDirection, EAimTargetMovement NewMovementMode, bool bInPersistentOnHit, bool bInHumanoid, bool bInHorizontalOnly = false);
+    void Activate(const FVector& NewLocation, float NewRadius, float NewSpeed, const FVector& NewTravelDirection, EAimTargetMovement NewMovementMode, bool bInPersistentOnHit, bool bInHumanoid, bool bInHorizontalOnly = false, float InHorizontalTravelDistance = 2000.0f, bool bInBodyHitEnabled = false);
     void ActivateJumpArc(const FVector& StartLocation, const FVector& LandingLocation, float ArcHeight, float Duration,
         float PostLandingHorizontalSpeed = 0.0f, float PostLandingHorizontalTravelDistance = 0.0f);
     void ActivateHorizontalGaze(const FVector& NewLocation, float NewRadius, float NewSpeed, float NewTravelDistance,

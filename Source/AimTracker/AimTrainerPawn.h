@@ -73,13 +73,13 @@ private:
     float SprintSpeedMultiplier = 2.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming")
-    float MouseSensitivity1x = 0.30f;
+    float MouseSensitivity1x = 0.25f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming")
-    float MouseSensitivity3_5x = 0.40f;
+    float MouseSensitivity3_5x = 0.20f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming")
-    float MouseSensitivity7_25x = 0.40f;
+    float MouseSensitivity7_25x = 0.30f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming")
     float SensitivityStep = 0.05f;
@@ -94,10 +94,10 @@ private:
     float VerticalSensitivityMultiplier = 1.30f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming|Zoom")
-    float BaseFieldOfView = 90.0f;
+    float BaseFieldOfView = 110.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming|Zoom")
-    float MonitorDistanceCoefficient = 1.33f;
+    float MonitorDistanceCoefficient = 0.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Lean")
     float LeanAngle = 12.0f;
@@ -127,7 +127,7 @@ private:
     float SlideDuration = 0.65f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideInitialSpeed = 4600.968f;
+    float SlideInitialSpeed = 5500.968f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
     float SlideBoostSpeedMultiplier = 1.0f;
@@ -169,19 +169,19 @@ private:
     float JumpGravity = 5600.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Jump")
-    float AirJumpForwardDeceleration = 600.0f;
+    float AirJumpForwardDeceleration = 500.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
-    float SlideJumpInitialVelocity = 2157.0f;
+    float SlideJumpInitialVelocity = 2200.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
     float SlideJumpAirtimeScale = 0.929809f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
-    float SlideJumpMinimumForwardSpeed = 1450.0f;
+    float SlideJumpMinimumForwardSpeed = 1600.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
-    float SlideJumpForwardDeceleration = 600.0f;
+    float SlideJumpForwardDeceleration = 500.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
     float SlideJumpMomentumMultiplier = 1.0f;
