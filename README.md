@@ -6,8 +6,8 @@ A first-person aim-training prototype built in C++ with Unreal Engine 5.8. It us
 
 - WASD movement, mouse aiming, automatic fire at 1x, and scoped single-fire behavior at 3.5x and 7.25x.
 - Independent sensitivity settings for 1x, 3.5x, and 7.25x scopes.
-- Smooth Q/E leaning with camera roll, lateral movement, and aim offset; sprinting, jumping, sliding, and slide-jumping momentum.
-- Configurable recoil pattern, scoped recoil recovery, and a dynamic green crosshair.
+- Smooth Q/E leaning with camera roll, lateral movement, and aim offset; Caps Lock slow-walk toggle, sprinting, jumping, sliding, and slide-jumping momentum.
+- Configurable recoil pattern, scoped recoil recovery, and a minimal red-dot crosshair.
 - Static and moving 10m, 20m, 50m, and 100m targets, jump bots, mixed peeks, cover peeks, target switching, and reactive tracking drills.
 - 60-second scoring for hits, accuracy, reaction time, bot eliminations, or continuous time on target, depending on the drill.
 - Procedural 100m range, blue lighting, and rear cover for peek-shot practice.

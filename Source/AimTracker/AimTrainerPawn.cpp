@@ -317,6 +317,7 @@ void AAimTrainerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
     PlayerInputComponent->BindAction(TEXT("LeanRight"), IE_Released, this, &AAimTrainerPawn::EndLeanRight);
     PlayerInputComponent->BindAction(TEXT("Sprint"), IE_Pressed, this, &AAimTrainerPawn::BeginSprint);
     PlayerInputComponent->BindAction(TEXT("Sprint"), IE_Released, this, &AAimTrainerPawn::EndSprint);
+    PlayerInputComponent->BindKey(EKeys::CapsLock, IE_Pressed, this, &AAimTrainerPawn::ToggleSlowWalk);
     PlayerInputComponent->BindKey(EKeys::One, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode1);
     PlayerInputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode2);
     PlayerInputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode3);
@@ -544,7 +545,16 @@ void AAimTrainerPawn::BeginSprint()
 void AAimTrainerPawn::EndSprint()
 {
     bIsSprinting = false;
-    FloatingMovement->MaxSpeed = MoveSpeed;
+    FloatingMovement->MaxSpeed = MoveSpeed * (bSlowWalkEnabled ? SlowWalkSpeedMultiplier : 1.0f);
+}
+
+void AAimTrainerPawn::ToggleSlowWalk()
+{
+    bSlowWalkEnabled = !bSlowWalkEnabled;
+    if (!bIsSprinting)
+    {
+        FloatingMovement->MaxSpeed = MoveSpeed * (bSlowWalkEnabled ? SlowWalkSpeedMultiplier : 1.0f);
+    }
 }
 
 void AAimTrainerPawn::SelectTrainingMode1()

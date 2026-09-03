@@ -22,6 +22,7 @@ public:
     float GetMouseSensitivity() const;
     float GetZoomMultiplier() const;
     float GetJumpCrosshairOffset() const;
+    bool IsSlowWalking() const { return bSlowWalkEnabled; }
 
 private:
     void MoveForward(float Value);
@@ -48,6 +49,7 @@ private:
     void EndLeanRight();
     void BeginSprint();
     void EndSprint();
+    void ToggleSlowWalk();
     void SelectTrainingMode1();
     void SelectTrainingMode2();
     void SelectTrainingMode3();
@@ -73,6 +75,9 @@ private:
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Sprint")
     float SprintSpeedMultiplier = 2.0f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Movement|Walk")
+    float SlowWalkSpeedMultiplier = 0.5f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming")
     float MouseSensitivity1x = 0.25f;
@@ -220,4 +225,5 @@ private:
     bool bQueuedSlideJump = false;
     bool bIsFiring = false;
     bool bIsSprinting = false;
+    bool bSlowWalkEnabled = false;
 };

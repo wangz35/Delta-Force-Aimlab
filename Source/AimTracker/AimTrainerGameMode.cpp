@@ -303,12 +303,13 @@ void AAimTrainerGameMode::BuildArena()
         return nullptr;
     };
 
-    SpawnBlock(FVector(3900.0f, 0.0f, -220.0f), FVector(128.0f, 106.0f, 0.35f));
-    SpawnBlock(FVector(10300.0f, 0.0f, 1190.0f), FVector(0.3f, 106.0f, 27.8f));
-    SpawnBlock(FVector(-2500.0f, 0.0f, 1190.0f), FVector(0.3f, 106.0f, 27.8f));
-    SpawnBlock(FVector(3900.0f, 0.0f, 2600.0f), FVector(128.0f, 106.0f, 0.35f));
-    SpawnBlock(FVector(3900.0f, 5300.0f, 1190.0f), FVector(128.0f, 0.3f, 27.8f));
-    SpawnBlock(FVector(3900.0f, -5300.0f, 1190.0f), FVector(128.0f, 0.3f, 27.8f));
+    // The wide Mode 2 lanes can reach roughly +/-156m, so keep the arena walls outside their full travel range.
+    SpawnBlock(FVector(3900.0f, 0.0f, -220.0f), FVector(128.0f, 340.0f, 0.35f));
+    SpawnBlock(FVector(10300.0f, 0.0f, 1190.0f), FVector(0.3f, 340.0f, 27.8f));
+    SpawnBlock(FVector(-2500.0f, 0.0f, 1190.0f), FVector(0.3f, 340.0f, 27.8f));
+    SpawnBlock(FVector(3900.0f, 0.0f, 2600.0f), FVector(128.0f, 340.0f, 0.35f));
+    SpawnBlock(FVector(3900.0f, 17000.0f, 1190.0f), FVector(128.0f, 0.3f, 27.8f));
+    SpawnBlock(FVector(3900.0f, -17000.0f, 1190.0f), FVector(128.0f, 0.3f, 27.8f));
     SpawnBlock(FVector(-1000.0f, 0.0f, 220.0f), FVector(0.35f, 12.0f, 4.4f));
 
     if (AStaticMeshActor* LeftCover = SpawnBlock(FVector(2600.0f, -3100.0f, 25.0f), FVector(0.4f, 44.0f, 4.5f)))
@@ -388,8 +389,8 @@ void AAimTrainerGameMode::PlaceTarget(AAimTrainingTarget* Target, int32 TargetIn
     if (CurrentTrainingMode == 2)
     {
         // All distance targets use the same world-space tracking speed.
-        const float HorizontalSpeed = 420.0f;
-        const float HorizontalTravelDistance = TargetLocation.X * 0.40f;
+        const float HorizontalSpeed = 1260.0f;
+        const float HorizontalTravelDistance = TargetLocation.X * 1.20f;
         Target->Activate(TargetLocation, 34.0f, HorizontalSpeed, FVector::RightVector, EAimTargetMovement::Strafe, false, true, true, HorizontalTravelDistance, true);
         return;
     }
