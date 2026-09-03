@@ -25,6 +25,7 @@ void AAimTrainerHUD::DrawHUD()
     const float ZoomMultiplier = TrainingPawn ? TrainingPawn->GetZoomMultiplier() : 1.0f;
     const float JumpCrosshairOffset = TrainingPawn ? TrainingPawn->GetJumpCrosshairOffset() : 0.0f;
     const bool bBotScoreMode = GameMode->IsBotScoreMode();
+    const bool bTrackingScoreMode = GameMode->IsContinuousTrackingMode();
     const bool bHasBestBotRecord = GameMode->HasBestBotRecord();
     FString ModeName;
     switch (GameMode->GetTrainingMode())
@@ -33,6 +34,8 @@ void AAimTrainerHUD::DrawHUD()
     case 3: ModeName = TEXT("JUMP BOTS"); break;
     case 4: ModeName = TEXT("MIXED PEEK BOTS + BALL"); break;
     case 5: ModeName = TEXT("RANDOM COVER PEEKS"); break;
+    case 6: ModeName = TEXT("TARGET SWITCHING"); break;
+    case 7: ModeName = TEXT("REACTIVE TRACKING"); break;
     default: ModeName = TEXT("STANDARD RANGE"); break;
     }
 
@@ -46,9 +49,13 @@ void AAimTrainerHUD::DrawHUD()
     Canvas->K2_DrawBox(FVector2D(28.0f, 24.0f), FVector2D(470.0f, 94.0f), 1.0f, FLinearColor(0.008f, 0.011f, 0.014f, 0.70f));
     Canvas->K2_DrawBox(FVector2D(30.0f, 26.0f), FVector2D(4.0f, 90.0f), 1.0f, CrosshairGreen);
     DrawLabel(TEXT("AIM // RANGE"), FVector2D(52.0f, 37.0f), Orange, 1.25f);
-    DrawLabel(FString::Printf(TEXT("MODE %d  //  %s  //  KEYS 1-5"), GameMode->GetTrainingMode(), *ModeName), FVector2D(53.0f, 66.0f), Dim, 0.82f);
+    DrawLabel(FString::Printf(TEXT("MODE %d  //  %s  //  KEYS 1-7"), GameMode->GetTrainingMode(), *ModeName), FVector2D(53.0f, 66.0f), Dim, 0.82f);
     FString PrimaryStats;
-    if (bBotScoreMode)
+    if (bTrackingScoreMode)
+    {
+        PrimaryStats = FString::Printf(TEXT("ON TARGET %05.1f%%     TRACK %04.1fs"), GameMode->GetTrackingAccuracy(), GameMode->GetTrackingOnTargetSeconds());
+    }
+    else if (bBotScoreMode)
     {
         PrimaryStats = bHasBestBotRecord
             ? FString::Printf(TEXT("BOTS %03d     BEST %03d"), GameMode->GetBotEliminations(), GameMode->GetBestBotEliminations())
@@ -73,11 +80,13 @@ void AAimTrainerHUD::DrawHUD()
     Canvas->K2_DrawLine(FVector2D(MidX, CrosshairY + 4.0f), FVector2D(MidX, CrosshairY + 14.0f), 1.5f, CrosshairGreen);
     Canvas->K2_DrawBox(FVector2D(MidX - 1.5f, CrosshairY - 1.5f), FVector2D(3.0f, 3.0f), 1.0f, CrosshairGreen);
 
-    const FString ReactionText = bBotScoreMode
-        ? TEXT("TRACK A BOT FOR 0.4s TO ELIMINATE")
-        : (GameMode->GetHits() > 0
+    const FString ReactionText = bTrackingScoreMode
+        ? TEXT("KEEP THE CROSSHAIR ON THE TARGET THROUGH DIRECTION CHANGES")
+        : (bBotScoreMode
+            ? TEXT("TRACK A BOT FOR 0.4s TO ELIMINATE")
+            : (GameMode->GetHits() > 0
             ? FString::Printf(TEXT("AVG REACTION  %04.0f ms    LAST  %04.0f ms"), GameMode->GetAverageReactionMs(), GameMode->GetLastReactionMs())
-            : TEXT("AVG REACTION  ---- ms    LAST  ---- ms"));
+            : TEXT("AVG REACTION  ---- ms    LAST  ---- ms")));
     DrawLabel(ReactionText, FVector2D(30.0f, Height - 52.0f), Dim, 0.78f);
     DrawLabel(FString::Printf(TEXT("WASD MOVE  /  SPACE JUMP  /  SLIDE + SPACE SLIDE-JUMP  /  [ ] SENS %.2fx  /  RMB ZOOM  /  R RESTART"), Sensitivity), FVector2D(30.0f, Height - 28.0f), PaleOrange, 0.68f);
     DrawLabel(FString::Printf(TEXT("ZOOM  %.1fx    SENS  %.2f"), ZoomMultiplier, Sensitivity), FVector2D(Width - 230.0f, Height - 52.0f), PaleOrange, 0.82f);
@@ -86,7 +95,13 @@ void AAimTrainerHUD::DrawHUD()
     {
         Canvas->K2_DrawBox(FVector2D(0.0f, 0.0f), FVector2D(Width, Height), 1.0f, FLinearColor(0.0f, 0.0f, 0.0f, 0.72f));
         DrawLabel(TEXT("DRILL COMPLETE"), FVector2D(MidX, MidY - 72.0f), Orange, 1.65f, true);
-        if (bBotScoreMode)
+        if (bTrackingScoreMode)
+        {
+            DrawLabel(FString::Printf(TEXT("THIS RUN  %05.1f%% ON TARGET"), GameMode->GetTrackingAccuracy()), FVector2D(MidX, MidY - 20.0f), PaleOrange, 1.02f, true);
+            DrawLabel(FString::Printf(TEXT("BEST  %05.1f%% ON TARGET"), GameMode->GetBestTrackingAccuracy()), FVector2D(MidX, MidY + 17.0f), PaleOrange, 1.02f, true);
+            DrawLabel(TEXT("PRESS R TO RUN IT BACK"), FVector2D(MidX, MidY + 67.0f), Dim, 0.88f, true);
+        }
+        else if (bBotScoreMode)
         {
             if (bHasBestBotRecord)
             {

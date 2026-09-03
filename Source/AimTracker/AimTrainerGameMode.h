@@ -18,6 +18,9 @@ public:
 
     UPROPERTY(SaveGame)
     int32 Mode4BestBots = 0;
+
+    UPROPERTY(SaveGame)
+    float Mode7BestTrackingPercent = 0.0f;
 };
 
 UCLASS()
@@ -38,6 +41,7 @@ public:
 
     bool IsSessionActive() const { return bSessionActive; }
     bool IsBotScoreMode() const { return CurrentTrainingMode == 3 || CurrentTrainingMode == 4 || CurrentTrainingMode == 5; }
+    bool IsContinuousTrackingMode() const { return CurrentTrainingMode == 7; }
     bool HasBestBotRecord() const { return CurrentTrainingMode == 3 || CurrentTrainingMode == 4; }
     int32 GetTrainingMode() const { return CurrentTrainingMode; }
     int32 GetHits() const { return Hits; }
@@ -46,6 +50,9 @@ public:
     int32 GetBestBotEliminations() const;
     float GetTimeRemaining() const;
     float GetAccuracy() const;
+    float GetTrackingAccuracy() const;
+    float GetTrackingOnTargetSeconds() const { return TrackingOnTargetSeconds; }
+    float GetBestTrackingAccuracy() const;
     float GetAverageReactionMs() const;
     float GetLastReactionMs() const { return LastReactionMs; }
 
@@ -78,6 +85,10 @@ private:
     int32 HorizontalBotCount = 3;
     UPROPERTY(EditDefaultsOnly, Category = "Training|Mode 5")
     float Mode5RespawnDelay = 1.0f;
+    UPROPERTY(EditDefaultsOnly, Category = "Training|Mode 7")
+    float ReactiveTrackingSpeed = 420.0f;
+    UPROPERTY(EditDefaultsOnly, Category = "Training|Mode 7")
+    float ReactiveTrackingTravelDistance = 2000.0f;
     UPROPERTY(EditDefaultsOnly, Category = "Training")
     int32 TargetCount = 6;
     UPROPERTY()
@@ -98,6 +109,8 @@ private:
     float SessionStartTime = 0.0f;
     float LastReactionMs = 0.0f;
     float TotalReactionMs = 0.0f;
+    float TrackingSampleSeconds = 0.0f;
+    float TrackingOnTargetSeconds = 0.0f;
     float JumpSpawnAccumulator = 0.0f;
     FTimerHandle Mode5SpawnTimer;
     bool bSessionActive = false;

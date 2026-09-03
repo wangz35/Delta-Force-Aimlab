@@ -322,11 +322,15 @@ void AAimTrainerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
     PlayerInputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode3);
     PlayerInputComponent->BindKey(EKeys::Four, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode4);
     PlayerInputComponent->BindKey(EKeys::Five, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode5);
+    PlayerInputComponent->BindKey(EKeys::Six, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode6);
+    PlayerInputComponent->BindKey(EKeys::Seven, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode7);
     PlayerInputComponent->BindKey(EKeys::NumPadOne, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode1);
     PlayerInputComponent->BindKey(EKeys::NumPadTwo, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode2);
     PlayerInputComponent->BindKey(EKeys::NumPadThree, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode3);
     PlayerInputComponent->BindKey(EKeys::NumPadFour, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode4);
     PlayerInputComponent->BindKey(EKeys::NumPadFive, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode5);
+    PlayerInputComponent->BindKey(EKeys::NumPadSix, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode6);
+    PlayerInputComponent->BindKey(EKeys::NumPadSeven, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode7);
 }
 
 void AAimTrainerPawn::MoveForward(float Value)
@@ -566,6 +570,16 @@ void AAimTrainerPawn::SelectTrainingMode4()
 void AAimTrainerPawn::SelectTrainingMode5()
 {
     if (AAimTrainerGameMode* GameMode = Cast<AAimTrainerGameMode>(UGameplayStatics::GetGameMode(this))) GameMode->SetTrainingMode(5);
+}
+
+void AAimTrainerPawn::SelectTrainingMode6()
+{
+    if (AAimTrainerGameMode* GameMode = Cast<AAimTrainerGameMode>(UGameplayStatics::GetGameMode(this))) GameMode->SetTrainingMode(6);
+}
+
+void AAimTrainerPawn::SelectTrainingMode7()
+{
+    if (AAimTrainerGameMode* GameMode = Cast<AAimTrainerGameMode>(UGameplayStatics::GetGameMode(this))) GameMode->SetTrainingMode(7);
 }
 void AAimTrainerPawn::RestartTraining()
 {

@@ -53,6 +53,8 @@ private:
     void SelectTrainingMode3();
     void SelectTrainingMode4();
     void SelectTrainingMode5();
+    void SelectTrainingMode6();
+    void SelectTrainingMode7();
 
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TObjectPtr<UCapsuleComponent> Capsule;

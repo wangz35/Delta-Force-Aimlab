@@ -114,6 +114,16 @@ void AAimTrainerGameMode::UpdateAimTargetFocus(AAimTrainingTarget* HoveredTarget
         }
     }
 
+    if (bSessionActive && CurrentTrainingMode == 7)
+    {
+        const float SampleDelta = FMath::Max(0.0f, DeltaSeconds);
+        TrackingSampleSeconds += SampleDelta;
+        if (Targets.IsValidIndex(1) && IsValid(HoveredTarget) && HoveredTarget == Targets[1])
+        {
+            TrackingOnTargetSeconds += SampleDelta;
+        }
+    }
+
     if (!bSessionActive || !IsValid(HoveredTarget) || !HoveredTarget->IsGazeTarget()) return;
 
     const bool bTrackedJumpBot = (CurrentTrainingMode == 3 || CurrentTrainingMode == 5) && JumpTargets.Contains(HoveredTarget);
@@ -126,7 +136,7 @@ void AAimTrainerGameMode::UpdateAimTargetFocus(AAimTrainingTarget* HoveredTarget
 
 void AAimTrainerGameMode::SetTrainingMode(int32 NewMode)
 {
-    if (NewMode < 1 || NewMode > 5) return;
+    if (NewMode < 1 || NewMode > 7) return;
     CurrentTrainingMode = NewMode;
     RestartSession();
 }
@@ -138,6 +148,8 @@ void AAimTrainerGameMode::RestartSession()
     BotEliminations = 0;
     LastReactionMs = 0.0f;
     TotalReactionMs = 0.0f;
+    TrackingSampleSeconds = 0.0f;
+    TrackingOnTargetSeconds = 0.0f;
     bSessionActive = true;
     SessionStartTime = GetWorld()->GetTimeSeconds();
     JumpSpawnAccumulator = 0.0f;
@@ -185,6 +197,19 @@ float AAimTrainerGameMode::GetAccuracy() const
     return Shots > 0 ? static_cast<float>(Hits) / static_cast<float>(Shots) * 100.0f : 0.0f;
 }
 
+float AAimTrainerGameMode::GetTrackingAccuracy() const
+{
+    return TrackingSampleSeconds > SMALL_NUMBER
+        ? TrackingOnTargetSeconds / TrackingSampleSeconds * 100.0f
+        : 0.0f;
+}
+
+float AAimTrainerGameMode::GetBestTrackingAccuracy() const
+{
+    const float SavedBest = Records ? Records->Mode7BestTrackingPercent : 0.0f;
+    return FMath::Max(SavedBest, GetTrackingAccuracy());
+}
+
 float AAimTrainerGameMode::GetAverageReactionMs() const
 {
     return Hits > 0 ? TotalReactionMs / static_cast<float>(Hits) : 0.0f;
@@ -213,6 +238,11 @@ void AAimTrainerGameMode::FinishSession()
     else if (Records && CurrentTrainingMode == 4 && BotEliminations > Records->Mode4BestBots)
     {
         Records->Mode4BestBots = BotEliminations;
+        bNewRecord = true;
+    }
+    else if (Records && CurrentTrainingMode == 7 && GetTrackingAccuracy() > Records->Mode7BestTrackingPercent)
+    {
+        Records->Mode7BestTrackingPercent = GetTrackingAccuracy();
         bNewRecord = true;
     }
     if (bNewRecord)
@@ -245,6 +275,7 @@ void AAimTrainerGameMode::LoadRecords()
     {
         Records->Mode3BestBots = FMath::Max(0, Records->Mode3BestBots);
         Records->Mode4BestBots = FMath::Max(0, Records->Mode4BestBots);
+        Records->Mode7BestTrackingPercent = FMath::Clamp(Records->Mode7BestTrackingPercent, 0.0f, 100.0f);
     }
 }
 
@@ -333,7 +364,24 @@ void AAimTrainerGameMode::PlaceTarget(AAimTrainingTarget* Target, int32 TargetIn
     }
     if (TargetIndex == 1)
     {
+        if (CurrentTrainingMode == 7)
+        {
+            Target->Activate(FVector(2000.0f, 0.0f, 520.0f), 22.0f, ReactiveTrackingSpeed, FVector::RightVector, EAimTargetMovement::Strafe, true, false, true, ReactiveTrackingTravelDistance);
+            return;
+        }
         Target->Activate(FVector(2000.0f, 0.0f, 520.0f), 22.0f, 210.0f, FVector::RightVector, EAimTargetMovement::Strafe, true, false, true);
+        return;
+    }
+    if (CurrentTrainingMode == 6)
+    {
+        const float Distance = FMath::FRandRange(1400.0f, 4500.0f);
+        const float SideSign = (TargetIndex % 2 == 0) ? -1.0f : 1.0f;
+        const FVector SwitchLocation(
+            Distance,
+            SideSign * FMath::FRandRange(Distance * 0.12f, Distance * 0.55f),
+            FMath::FRandRange(300.0f, 1050.0f));
+        const float TargetRadius = FMath::Clamp(Distance * 0.012f, 18.0f, 48.0f);
+        Target->Activate(SwitchLocation, TargetRadius, 0.0f, FVector::RightVector, EAimTargetMovement::Strafe, false, false);
         return;
     }
     const FVector TargetLocation = GetTrackingTargetLocation(TargetIndex - 2);
@@ -355,6 +403,8 @@ bool AAimTrainerGameMode::ShouldShowBaseTarget(int32 TargetIndex) const
     if (CurrentTrainingMode == 3) return false;
     if (CurrentTrainingMode == 4) return TargetIndex == 1;
     if (CurrentTrainingMode == 5) return false;
+    if (CurrentTrainingMode == 6) return TargetIndex >= 2;
+    if (CurrentTrainingMode == 7) return TargetIndex == 1;
     return false;
 }
 
