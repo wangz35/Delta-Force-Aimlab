@@ -22,6 +22,7 @@ public:
     float GetMouseSensitivity() const;
     float GetZoomMultiplier() const;
     float GetJumpCrosshairOffset() const;
+    bool IsSlowWalking() const { return bSlowWalkEnabled; }
 
 private:
     void MoveForward(float Value);
@@ -48,11 +49,14 @@ private:
     void EndLeanRight();
     void BeginSprint();
     void EndSprint();
+    void ToggleSlowWalk();
     void SelectTrainingMode1();
     void SelectTrainingMode2();
     void SelectTrainingMode3();
     void SelectTrainingMode4();
     void SelectTrainingMode5();
+    void SelectTrainingMode6();
+    void SelectTrainingMode7();
 
     UPROPERTY(VisibleAnywhere, Category = "Components")
     TObjectPtr<UCapsuleComponent> Capsule;
@@ -72,14 +76,17 @@ private:
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Sprint")
     float SprintSpeedMultiplier = 2.0f;
 
-    UPROPERTY(EditDefaultsOnly, Category = "Aiming")
-    float MouseSensitivity1x = 0.30f;
+    UPROPERTY(EditDefaultsOnly, Category = "Movement|Walk")
+    float SlowWalkSpeedMultiplier = 0.5f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming")
-    float MouseSensitivity3_5x = 0.40f;
+    float MouseSensitivity1x = 0.25f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming")
-    float MouseSensitivity7_25x = 0.40f;
+    float MouseSensitivity3_5x = 0.20f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Aiming")
+    float MouseSensitivity7_25x = 0.30f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming")
     float SensitivityStep = 0.05f;
@@ -94,10 +101,10 @@ private:
     float VerticalSensitivityMultiplier = 1.30f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming|Zoom")
-    float BaseFieldOfView = 90.0f;
+    float BaseFieldOfView = 110.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Aiming|Zoom")
-    float MonitorDistanceCoefficient = 1.33f;
+    float MonitorDistanceCoefficient = 0.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Lean")
     float LeanAngle = 12.0f;
@@ -118,13 +125,16 @@ private:
     float RecoilVerticalKick = 0.145f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Recoil")
+    float RecoilHorizontalKickMultiplier = 1.50f;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Recoil")
     float RecoilSmoothingSpeed = 18.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
     float SlideDuration = 0.65f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideInitialSpeed = 7000.0f;
+    float SlideInitialSpeed = 5500.968f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
     float SlideBoostSpeedMultiplier = 1.0f;
@@ -133,19 +143,19 @@ private:
     float SlideInitialPhaseEndProgress = 0.20f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideCruiseSpeed = 4230.0f;
+    float SlideCruiseSpeed = 2780.299f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideSlowdownStartProgress = 0.60f;
+    float SlideSlowdownStartProgress = 0.75f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
     float SlideSlowdownEndProgress = 1.00f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideTargetDistance = 2500.0f;
+    float SlideTargetDistance = 1750.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
-    float SlideBaseSpeed = 2700.0f;
+    float SlideBaseSpeed = 1780.688f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide")
     float StandingCameraHeight = 28.0f;
@@ -166,22 +176,22 @@ private:
     float JumpGravity = 5600.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Jump")
-    float AirJumpForwardDeceleration = 600.0f;
+    float AirJumpForwardDeceleration = 500.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
-    float SlideJumpInitialVelocity = 2157.0f;
+    float SlideJumpInitialVelocity = 2200.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
-    float SlideJumpAirtimeScale = 0.80f;
+    float SlideJumpAirtimeScale = 0.929809f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
-    float SlideJumpMinimumForwardSpeed = 1450.0f;
+    float SlideJumpMinimumForwardSpeed = 1600.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
-    float SlideJumpForwardDeceleration = 600.0f;
+    float SlideJumpForwardDeceleration = 500.0f;
 
     UPROPERTY(EditDefaultsOnly, Category = "Movement|Slide Jump")
-    float SlideJumpMomentumMultiplier = 1.35f;
+    float SlideJumpMomentumMultiplier = 1.0f;
 
     FVector SlideDirection = FVector::ForwardVector;
     FVector SlideJumpDirection = FVector::ForwardVector;
@@ -215,4 +225,5 @@ private:
     bool bQueuedSlideJump = false;
     bool bIsFiring = false;
     bool bIsSprinting = false;
+    bool bSlowWalkEnabled = false;
 };

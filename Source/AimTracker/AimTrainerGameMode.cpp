@@ -114,6 +114,16 @@ void AAimTrainerGameMode::UpdateAimTargetFocus(AAimTrainingTarget* HoveredTarget
         }
     }
 
+    if (bSessionActive && CurrentTrainingMode == 7)
+    {
+        const float SampleDelta = FMath::Max(0.0f, DeltaSeconds);
+        TrackingSampleSeconds += SampleDelta;
+        if (Targets.IsValidIndex(1) && IsValid(HoveredTarget) && HoveredTarget == Targets[1])
+        {
+            TrackingOnTargetSeconds += SampleDelta;
+        }
+    }
+
     if (!bSessionActive || !IsValid(HoveredTarget) || !HoveredTarget->IsGazeTarget()) return;
 
     const bool bTrackedJumpBot = (CurrentTrainingMode == 3 || CurrentTrainingMode == 5) && JumpTargets.Contains(HoveredTarget);
@@ -126,7 +136,7 @@ void AAimTrainerGameMode::UpdateAimTargetFocus(AAimTrainingTarget* HoveredTarget
 
 void AAimTrainerGameMode::SetTrainingMode(int32 NewMode)
 {
-    if (NewMode < 1 || NewMode > 5) return;
+    if (NewMode < 1 || NewMode > 7) return;
     CurrentTrainingMode = NewMode;
     RestartSession();
 }
@@ -138,10 +148,11 @@ void AAimTrainerGameMode::RestartSession()
     BotEliminations = 0;
     LastReactionMs = 0.0f;
     TotalReactionMs = 0.0f;
+    TrackingSampleSeconds = 0.0f;
+    TrackingOnTargetSeconds = 0.0f;
     bSessionActive = true;
     SessionStartTime = GetWorld()->GetTimeSeconds();
     JumpSpawnAccumulator = 0.0f;
-    bMode5NextSpawnLeft = true;
     ClearDynamicBotTargets();
 
     if (Targets.Num() == 0) SpawnTargets();
@@ -172,7 +183,7 @@ void AAimTrainerGameMode::RestartSession()
         {
             PlayerController->SetControlRotation(FRotator::ZeroRotator);
         }
-        SpawnMode5JumpTarget();
+        SpawnMode5PeekTarget();
     }
 }
 
@@ -184,6 +195,19 @@ float AAimTrainerGameMode::GetTimeRemaining() const
 float AAimTrainerGameMode::GetAccuracy() const
 {
     return Shots > 0 ? static_cast<float>(Hits) / static_cast<float>(Shots) * 100.0f : 0.0f;
+}
+
+float AAimTrainerGameMode::GetTrackingAccuracy() const
+{
+    return TrackingSampleSeconds > SMALL_NUMBER
+        ? TrackingOnTargetSeconds / TrackingSampleSeconds * 100.0f
+        : 0.0f;
+}
+
+float AAimTrainerGameMode::GetBestTrackingAccuracy() const
+{
+    const float SavedBest = Records ? Records->Mode7BestTrackingPercent : 0.0f;
+    return FMath::Max(SavedBest, GetTrackingAccuracy());
 }
 
 float AAimTrainerGameMode::GetAverageReactionMs() const
@@ -216,6 +240,11 @@ void AAimTrainerGameMode::FinishSession()
         Records->Mode4BestBots = BotEliminations;
         bNewRecord = true;
     }
+    else if (Records && CurrentTrainingMode == 7 && GetTrackingAccuracy() > Records->Mode7BestTrackingPercent)
+    {
+        Records->Mode7BestTrackingPercent = GetTrackingAccuracy();
+        bNewRecord = true;
+    }
     if (bNewRecord)
     {
         SaveRecords();
@@ -246,6 +275,7 @@ void AAimTrainerGameMode::LoadRecords()
     {
         Records->Mode3BestBots = FMath::Max(0, Records->Mode3BestBots);
         Records->Mode4BestBots = FMath::Max(0, Records->Mode4BestBots);
+        Records->Mode7BestTrackingPercent = FMath::Clamp(Records->Mode7BestTrackingPercent, 0.0f, 100.0f);
     }
 }
 
@@ -273,19 +303,20 @@ void AAimTrainerGameMode::BuildArena()
         return nullptr;
     };
 
-    SpawnBlock(FVector(3900.0f, 0.0f, -220.0f), FVector(128.0f, 106.0f, 0.35f));
-    SpawnBlock(FVector(10300.0f, 0.0f, 1190.0f), FVector(0.3f, 106.0f, 27.8f));
-    SpawnBlock(FVector(-2500.0f, 0.0f, 1190.0f), FVector(0.3f, 106.0f, 27.8f));
-    SpawnBlock(FVector(3900.0f, 0.0f, 2600.0f), FVector(128.0f, 106.0f, 0.35f));
-    SpawnBlock(FVector(3900.0f, 5300.0f, 1190.0f), FVector(128.0f, 0.3f, 27.8f));
-    SpawnBlock(FVector(3900.0f, -5300.0f, 1190.0f), FVector(128.0f, 0.3f, 27.8f));
+    // The wide Mode 2 lanes can reach roughly +/-156m, so keep the arena walls outside their full travel range.
+    SpawnBlock(FVector(3900.0f, 0.0f, -220.0f), FVector(128.0f, 340.0f, 0.35f));
+    SpawnBlock(FVector(10300.0f, 0.0f, 1190.0f), FVector(0.3f, 340.0f, 27.8f));
+    SpawnBlock(FVector(-2500.0f, 0.0f, 1190.0f), FVector(0.3f, 340.0f, 27.8f));
+    SpawnBlock(FVector(3900.0f, 0.0f, 2600.0f), FVector(128.0f, 340.0f, 0.35f));
+    SpawnBlock(FVector(3900.0f, 17000.0f, 1190.0f), FVector(128.0f, 0.3f, 27.8f));
+    SpawnBlock(FVector(3900.0f, -17000.0f, 1190.0f), FVector(128.0f, 0.3f, 27.8f));
     SpawnBlock(FVector(-1000.0f, 0.0f, 220.0f), FVector(0.35f, 12.0f, 4.4f));
 
-    if (AStaticMeshActor* LeftCover = SpawnBlock(FVector(2600.0f, -3100.0f, 350.0f), FVector(0.4f, 44.0f, 11.0f)))
+    if (AStaticMeshActor* LeftCover = SpawnBlock(FVector(2600.0f, -3100.0f, 25.0f), FVector(0.4f, 44.0f, 4.5f)))
     {
         Mode5CoverWalls.Add(LeftCover);
     }
-    if (AStaticMeshActor* RightCover = SpawnBlock(FVector(2600.0f, 3100.0f, 350.0f), FVector(0.4f, 44.0f, 11.0f)))
+    if (AStaticMeshActor* RightCover = SpawnBlock(FVector(2600.0f, 3100.0f, 25.0f), FVector(0.4f, 44.0f, 4.5f)))
     {
         Mode5CoverWalls.Add(RightCover);
     }
@@ -334,19 +365,47 @@ void AAimTrainerGameMode::PlaceTarget(AAimTrainingTarget* Target, int32 TargetIn
     }
     if (TargetIndex == 1)
     {
+        if (CurrentTrainingMode == 7)
+        {
+            Target->Activate(FVector(2000.0f, 0.0f, 520.0f), 22.0f, ReactiveTrackingSpeed, FVector::RightVector, EAimTargetMovement::Strafe, true, false, true, ReactiveTrackingTravelDistance);
+            return;
+        }
         Target->Activate(FVector(2000.0f, 0.0f, 520.0f), 22.0f, 210.0f, FVector::RightVector, EAimTargetMovement::Strafe, true, false, true);
         return;
     }
-    Target->Activate(GetTrackingTargetLocation(TargetIndex - 2), 34.0f, 0.0f, FVector::RightVector, EAimTargetMovement::Strafe, false, true);
+    if (CurrentTrainingMode == 6)
+    {
+        const float Distance = FMath::FRandRange(1400.0f, 4500.0f);
+        const float SideSign = (TargetIndex % 2 == 0) ? -1.0f : 1.0f;
+        const FVector SwitchLocation(
+            Distance,
+            SideSign * FMath::FRandRange(Distance * 0.12f, Distance * 0.55f),
+            FMath::FRandRange(300.0f, 1050.0f));
+        const float TargetRadius = FMath::Clamp(Distance * 0.012f, 18.0f, 48.0f);
+        Target->Activate(SwitchLocation, TargetRadius, 0.0f, FVector::RightVector, EAimTargetMovement::Strafe, false, false);
+        return;
+    }
+    const FVector TargetLocation = GetTrackingTargetLocation(TargetIndex - 2);
+    if (CurrentTrainingMode == 2)
+    {
+        // All distance targets use the same world-space tracking speed.
+        const float HorizontalSpeed = 630.0f;
+        const float HorizontalTravelDistance = TargetLocation.X * 1.20f;
+        Target->Activate(TargetLocation, 34.0f, HorizontalSpeed, FVector::RightVector, EAimTargetMovement::Strafe, false, true, true, HorizontalTravelDistance, true);
+        return;
+    }
+    Target->Activate(TargetLocation, 34.0f, 0.0f, FVector::RightVector, EAimTargetMovement::Strafe, false, true);
 }
 
 bool AAimTrainerGameMode::ShouldShowBaseTarget(int32 TargetIndex) const
 {
     if (CurrentTrainingMode == 1) return TargetIndex == 0 || TargetIndex >= 2;
-    if (CurrentTrainingMode == 2) return TargetIndex == 0 || TargetIndex == 1;
+    if (CurrentTrainingMode == 2) return TargetIndex == 0 || TargetIndex >= 2;
     if (CurrentTrainingMode == 3) return false;
     if (CurrentTrainingMode == 4) return TargetIndex == 1;
     if (CurrentTrainingMode == 5) return false;
+    if (CurrentTrainingMode == 6) return TargetIndex >= 2;
+    if (CurrentTrainingMode == 7) return TargetIndex == 1;
     return false;
 }
 
@@ -408,15 +467,43 @@ void AAimTrainerGameMode::SpawnHorizontalBot()
     AAimTrainingTarget* Target = GetWorld()->SpawnActor<AAimTrainingTarget>();
     if (!Target) return;
 
-    const FVector SpawnLocation(
-        FMath::FRandRange(2600.0f, 4200.0f),
-        FMath::FRandRange(-850.0f, 850.0f),
-        210.0f);
-    Target->ActivateHorizontalGaze(
-        SpawnLocation,
-        34.0f,
-        FMath::FRandRange(190.0f, 310.0f),
-        FMath::FRandRange(1000.0f, 1850.0f));
+    const float SideSign = FMath::RandBool() ? 1.0f : -1.0f;
+    const float Distance = FMath::FRandRange(2600.0f, 4200.0f);
+    const float HorizontalSpeed = FMath::FRandRange(210.0f, 275.0f);
+    const float HorizontalTravelDistance = FMath::FRandRange(1050.0f, 1650.0f);
+
+    if (FMath::RandBool())
+    {
+        const FVector StartLocation(
+            Distance,
+            SideSign * FMath::FRandRange(1650.0f, 2300.0f),
+            210.0f);
+        const FVector LandingLocation(
+            Distance + FMath::FRandRange(-220.0f, 220.0f),
+            SideSign * FMath::FRandRange(350.0f, 750.0f),
+            210.0f);
+        Target->ActivateJumpArc(
+            StartLocation,
+            LandingLocation,
+            FMath::FRandRange(360.0f, 480.0f),
+            FMath::FRandRange(0.85f, 1.05f),
+            HorizontalSpeed,
+            HorizontalTravelDistance);
+    }
+    else
+    {
+        const FVector LaneCenter(
+            Distance,
+            FMath::FRandRange(-180.0f, 180.0f),
+            210.0f);
+        Target->ActivateHorizontalGaze(
+            LaneCenter,
+            34.0f,
+            HorizontalSpeed,
+            HorizontalTravelDistance,
+            true,
+            SideSign);
+    }
     HorizontalBotTargets.Add(Target);
 }
 
@@ -426,9 +513,18 @@ void AAimTrainerGameMode::RemoveHorizontalBotTarget(AAimTrainingTarget* Target)
     if (IsValid(Target)) Target->Destroy();
 }
 
-void AAimTrainerGameMode::SpawnMode5JumpTarget()
+void AAimTrainerGameMode::SpawnMode5PeekTarget()
 {
-    if (CurrentTrainingMode != 5 || !bSessionActive || JumpTargets.Num() > 0)
+    if (CurrentTrainingMode != 5 || !bSessionActive)
+    {
+        return;
+    }
+
+    JumpTargets.RemoveAll([](const TObjectPtr<AAimTrainingTarget>& Target)
+    {
+        return !IsValid(Target);
+    });
+    if (JumpTargets.Num() > 0)
     {
         return;
     }
@@ -439,16 +535,37 @@ void AAimTrainerGameMode::SpawnMode5JumpTarget()
         return;
     }
 
-    const float SideSign = bMode5NextSpawnLeft ? -1.0f : 1.0f;
-    const FVector StartLocation(3000.0f, SideSign * 1600.0f, 210.0f);
-    const FVector LandingLocation(3000.0f, SideSign * 450.0f, 210.0f);
-    Target->ActivateJumpArc(
-        StartLocation,
-        LandingLocation,
-        FMath::FRandRange(360.0f, 460.0f),
-        FMath::FRandRange(0.85f, 1.0f));
+    const float SideSign = FMath::RandBool() ? 1.0f : -1.0f;
+    const float Distance = FMath::FRandRange(2920.0f, 3080.0f);
+    const float HorizontalSpeed = FMath::FRandRange(420.0f, 550.0f);
+    const float HorizontalTravelDistance = FMath::FRandRange(700.0f, 900.0f);
+    const FVector LaneCenter(Distance, SideSign * 450.0f, 210.0f);
+
+    if (FMath::RandBool())
+    {
+        const FVector StartLocation(
+            Distance,
+            SideSign * (450.0f + HorizontalTravelDistance),
+            210.0f);
+        Target->ActivateJumpArc(
+            StartLocation,
+            LaneCenter,
+            FMath::FRandRange(360.0f, 460.0f),
+            FMath::FRandRange(0.85f, 1.0f),
+            HorizontalSpeed,
+            HorizontalTravelDistance);
+    }
+    else
+    {
+        Target->ActivateHorizontalGaze(
+            LaneCenter,
+            34.0f,
+            HorizontalSpeed,
+            HorizontalTravelDistance,
+            true,
+            SideSign);
+    }
     JumpTargets.Add(Target);
-    bMode5NextSpawnLeft = !bMode5NextSpawnLeft;
 }
 
 void AAimTrainerGameMode::ScheduleMode5NextTarget()
@@ -462,7 +579,7 @@ void AAimTrainerGameMode::ScheduleMode5NextTarget()
     GetWorldTimerManager().SetTimer(
         Mode5SpawnTimer,
         this,
-        &AAimTrainerGameMode::SpawnMode5JumpTarget,
+        &AAimTrainerGameMode::SpawnMode5PeekTarget,
         Mode5RespawnDelay,
         false);
 }

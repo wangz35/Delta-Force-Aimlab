@@ -32,13 +32,19 @@ AAimTrainerPawn::AAimTrainerPawn()
 
     // Fire subtracts these samples: positive values pull left, negative values pull right.
     RecoilYawPattern = {
-        // Shots 1-12: progressively pull left (total 0.462 degrees).
-        0.000f, 0.012f, 0.018f, 0.024f, 0.030f, 0.036f, 0.042f, 0.048f, 0.054f, 0.060f, 0.066f, 0.072f,
-        // Shots 13-36: continuously pull right, crossing to the mirrored side (total 0.924 degrees).
-        -0.010f, -0.015f, -0.020f, -0.025f, -0.030f, -0.035f, -0.040f, -0.045f, -0.050f, -0.055f, -0.062f, -0.075f,
-        -0.075f, -0.062f, -0.055f, -0.050f, -0.045f, -0.040f, -0.035f, -0.030f, -0.025f, -0.020f, -0.015f, -0.010f,
-        // Shots 37-48: pull left again and finish at the starting horizontal position (total 0.462 degrees).
-        0.012f, 0.018f, 0.024f, 0.030f, 0.036f, 0.048f, 0.060f, 0.072f, 0.060f, 0.048f, 0.036f, 0.018f
+        // Shots 1-5: pull right (total -0.1925 degrees).
+        -0.0250f, -0.0325f, -0.0400f, -0.0450f, -0.0500f,
+        // Shots 6-15: pull left across the center (total +0.3850 degrees).
+         0.0180f,  0.0260f,  0.0340f,  0.0420f,  0.0520f,
+         0.0520f,  0.0480f,  0.0440f,  0.0380f,  0.0310f,
+        // Shots 16-25: pull right across the center (total -0.3850 degrees).
+        -0.0180f, -0.0260f, -0.0340f, -0.0420f, -0.0520f,
+        -0.0520f, -0.0480f, -0.0440f, -0.0380f, -0.0310f,
+        // Shots 26-35: pull left across the center (total +0.3850 degrees).
+         0.0180f,  0.0260f,  0.0340f,  0.0420f,  0.0520f,
+         0.0520f,  0.0480f,  0.0440f,  0.0380f,  0.0310f,
+        // Shots 36-40: pull right and finish exactly at the starting horizontal position.
+        -0.0500f, -0.0450f, -0.0400f, -0.0325f, -0.0250f
     };
 
     AutoPossessPlayer = EAutoReceiveInput::Player0;
@@ -311,16 +317,21 @@ void AAimTrainerPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
     PlayerInputComponent->BindAction(TEXT("LeanRight"), IE_Released, this, &AAimTrainerPawn::EndLeanRight);
     PlayerInputComponent->BindAction(TEXT("Sprint"), IE_Pressed, this, &AAimTrainerPawn::BeginSprint);
     PlayerInputComponent->BindAction(TEXT("Sprint"), IE_Released, this, &AAimTrainerPawn::EndSprint);
+    PlayerInputComponent->BindKey(EKeys::CapsLock, IE_Pressed, this, &AAimTrainerPawn::ToggleSlowWalk);
     PlayerInputComponent->BindKey(EKeys::One, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode1);
     PlayerInputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode2);
     PlayerInputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode3);
     PlayerInputComponent->BindKey(EKeys::Four, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode4);
     PlayerInputComponent->BindKey(EKeys::Five, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode5);
+    PlayerInputComponent->BindKey(EKeys::Six, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode6);
+    PlayerInputComponent->BindKey(EKeys::Seven, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode7);
     PlayerInputComponent->BindKey(EKeys::NumPadOne, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode1);
     PlayerInputComponent->BindKey(EKeys::NumPadTwo, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode2);
     PlayerInputComponent->BindKey(EKeys::NumPadThree, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode3);
     PlayerInputComponent->BindKey(EKeys::NumPadFour, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode4);
     PlayerInputComponent->BindKey(EKeys::NumPadFive, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode5);
+    PlayerInputComponent->BindKey(EKeys::NumPadSix, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode6);
+    PlayerInputComponent->BindKey(EKeys::NumPadSeven, IE_Pressed, this, &AAimTrainerPawn::SelectTrainingMode7);
 }
 
 void AAimTrainerPawn::MoveForward(float Value)
@@ -395,7 +406,7 @@ void AAimTrainerPawn::Fire()
 
     if (!RecoilYawPattern.IsEmpty())
     {
-        PendingRecoilYaw -= RecoilYawPattern[RecoilShotIndex % RecoilYawPattern.Num()];
+        PendingRecoilYaw -= RecoilYawPattern[RecoilShotIndex % RecoilYawPattern.Num()] * RecoilHorizontalKickMultiplier;
     }
     PendingRecoilPitch -= RecoilVerticalKick;
     ++RecoilShotIndex;
@@ -477,7 +488,7 @@ void AAimTrainerPawn::LaunchJump(bool bFromSlide)
     {
         const float ExitSlideSpeed = FMath::Max(SlideBaseSpeed, SlideCurrentSpeed);
         SlideJumpDirection = SlideDirection;
-        SlideJumpForwardSpeed = FMath::Max(SlideJumpMinimumForwardSpeed, ExitSlideSpeed * 0.84f) * SlideJumpMomentumMultiplier;
+        SlideJumpForwardSpeed = FMath::Max(SlideJumpMinimumForwardSpeed, ExitSlideSpeed * SlideJumpMomentumMultiplier);
         SlideCurrentSpeed = 0.0f;
     }
     else
@@ -534,7 +545,16 @@ void AAimTrainerPawn::BeginSprint()
 void AAimTrainerPawn::EndSprint()
 {
     bIsSprinting = false;
-    FloatingMovement->MaxSpeed = MoveSpeed;
+    FloatingMovement->MaxSpeed = MoveSpeed * (bSlowWalkEnabled ? SlowWalkSpeedMultiplier : 1.0f);
+}
+
+void AAimTrainerPawn::ToggleSlowWalk()
+{
+    bSlowWalkEnabled = !bSlowWalkEnabled;
+    if (!bIsSprinting)
+    {
+        FloatingMovement->MaxSpeed = MoveSpeed * (bSlowWalkEnabled ? SlowWalkSpeedMultiplier : 1.0f);
+    }
 }
 
 void AAimTrainerPawn::SelectTrainingMode1()
@@ -560,6 +580,16 @@ void AAimTrainerPawn::SelectTrainingMode4()
 void AAimTrainerPawn::SelectTrainingMode5()
 {
     if (AAimTrainerGameMode* GameMode = Cast<AAimTrainerGameMode>(UGameplayStatics::GetGameMode(this))) GameMode->SetTrainingMode(5);
+}
+
+void AAimTrainerPawn::SelectTrainingMode6()
+{
+    if (AAimTrainerGameMode* GameMode = Cast<AAimTrainerGameMode>(UGameplayStatics::GetGameMode(this))) GameMode->SetTrainingMode(6);
+}
+
+void AAimTrainerPawn::SelectTrainingMode7()
+{
+    if (AAimTrainerGameMode* GameMode = Cast<AAimTrainerGameMode>(UGameplayStatics::GetGameMode(this))) GameMode->SetTrainingMode(7);
 }
 void AAimTrainerPawn::RestartTraining()
 {
