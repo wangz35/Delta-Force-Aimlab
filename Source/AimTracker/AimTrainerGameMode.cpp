@@ -389,7 +389,7 @@ void AAimTrainerGameMode::PlaceTarget(AAimTrainingTarget* Target, int32 TargetIn
     if (CurrentTrainingMode == 2)
     {
         // All distance targets use the same world-space tracking speed.
-        const float HorizontalSpeed = 1260.0f;
+        const float HorizontalSpeed = 630.0f;
         const float HorizontalTravelDistance = TargetLocation.X * 1.20f;
         Target->Activate(TargetLocation, 34.0f, HorizontalSpeed, FVector::RightVector, EAimTargetMovement::Strafe, false, true, true, HorizontalTravelDistance, true);
         return;
